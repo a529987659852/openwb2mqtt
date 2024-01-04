@@ -81,7 +81,9 @@ This image shows the openWB2 status page (http://your-ip/openWB/web/settings/#/S
 
 # Additional Information: Mosquitto Configuration in an Internal Network
 
-If you're in an internal network, for example your home network, you can simply subscribe the openWB mosquitto server with the mosquitto server you're using with home assistant. No bridge is required. Instead, add the following to the configuration (for example in /etc/mosquitto/conf.d/openwb.conf):
+If you're in an internal network, for example your home network, you can simply subscribe to the internal openWB mosquitto server with the mosquitto server you're using with home assistant. No bridge in openWB (Settings -> System -> MQTT Bridge) is required. Instead, create a bridge from the MQTT server your Home Assistant is connected to to the internal MQTT server in the openBW using the following to the configuration (for example in /etc/mosquitto/conf.d/openwb.conf). 
+
+*Alternatively, you can also use the internal MQTT server in openWB as primary MQTT server in your network and connect Home Assistant to this MQTT server.*
 
 ```
 #
@@ -91,6 +93,8 @@ connection openwb
 address openwb.fritz.box:1883
 start_type automatic
 topic openWB/# both 2
+## Carefull: Using above line, you allow read and write access to all topics.
+# You might want to limit write access to certain topics.
 local_clientid openwb.mosquitto
 try_private false
 cleansession true
