@@ -1,4 +1,46 @@
-# Example Configuration for openWB2
+# openWB2 with Home Assistant
+
+This is a custom component for Home Assistant supporting the [openWB](https://openwb.de/main/) wallbox for charging electric vehicles. The integration subscribes to MQTT topics `prefix/<various values>` which are used by openwb to broadcast information and displays this informations as entities. You can also change, for example, the charge mode of a charge point using a dropdown.
+
+Note: I provide this custom integration without any warranty. It lies in the responsability of each user to validate the functionality with his/her own openWB!
+
+This integration assumes that you run the **openWB using software version 2.x**. If your wallbox still uses the version 1.9x, please use the older version of this integration (https://github.com/a529987659852/openwbmqtt).
+
+
+If you need help, also have a look [here](http://tech-engineering.de/home-assistant-und-openwb). Although created for the previous version of this integration, you should still find useful information if you're not familiar to MQTT and/or custom integrations in Home Assistant.
+
+## What does the custom integration provide in detail?
+My integration provides the following device types:
+
+- Wallbox: This device type represents the openWB itself. You get the following sensors:
+  - House consumption
+  - Total battery power and state of charge
+  - Total PV production
+  - Total charging power
+  - The sensors correspond to what the openWB shows in the upper section on the overview page.
+- Charge Point: This device represents a charge point of the openWB. You should be able to configure the internal charge point as well as charge points from remote openWBs.
+You get, for example, the following sensors:
+  - Charge power (total and individual phases)
+  - Number of active phases
+  - Current
+  - Voltage
+  - Selected charge mode
+  - Total energy values
+  - Plug and charge states
+  - And so on...
+- Counter: This device represents a counter, for example, the counter that measures your inbound and outbound energy from the supplier. You get, for example, the following sensors:
+  -  Power (total and individual phases)
+  -  Current
+  -  Voltage
+  -  Total energy values (imported and exported energy)
+  -  And so on...
+- Battery: This device represents a battery, for example, a house battery. You get, for example, the following sensors:
+  - Power
+  - State of charge
+  - Total energy values (charged into the battery and taken out of the battery) 
+
+## Example Configuration for openWB2
+When setting up this integration, you must choose the device to be created and provide additional details (MQTT root and device ID).
 
 How to find out the device ID and MQTT root?
 
@@ -8,16 +50,6 @@ This image shows an example of the MQTT topics published by openWB2 and how to i
 This image shows the openWB2 status page (http://<your-ip>/openWB/web/settings/#/Status) and the device IDs:
 ![HowToConfigureChargepoint-Status](https://github.com/a529987659852/openwbmqtt/assets/69649604/621be5ee-0a75-44ea-a652-6197ae368f49)
 
-
-
-# To be done: openwbmqtt
-
-Note: I provide this custom integration without any warranty. It lies in the responsability of each user to validate the functionality with his/her own openWB!
-
-Custom component for home assistant supporting [openWB wallbox](https://openwb.de/main/) wallbox for charging electric vehicles. The integration subscribes to MQTT topics `prefix/<various values>` which are used by openwb to broadcast information and displays this informations as sensor entities.
-In addition, the integration provides services that execute actions on the openwb (for example enable/disable a charge point).
-
-If you need help, also have a look here: http://tech-engineering.de/home-assistant-und-openwb/
 
 # How to add this custom component to home assistant
 
