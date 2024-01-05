@@ -5,7 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 # Import global values.
-from .const import DOMAIN, PLATFORMS
+from .const import PLATFORMS
 
 _LOGGER = logging.getLogger(__name__)
 
