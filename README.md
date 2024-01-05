@@ -79,26 +79,79 @@ This image shows the openWB2 status page (http://your-ip/openWB/web/settings/#/S
 ![HowToConfigureChargepoint-Status](https://github.com/a529987659852/openwbmqtt/assets/69649604/621be5ee-0a75-44ea-a652-6197ae368f49)
 
 
-# Additional Information: Mosquitto Configuration in an Internal Network
+# Additional Information: How to get the openWB values in Home Assistant using MQTT
 
-If you're in an internal network, for example your home network, you can simply subscribe to the internal openWB mosquitto server with the mosquitto server you're using with home assistant. No bridge in openWB (Settings -> System -> MQTT Bridge) is required. Instead, create a bridge from the MQTT server your Home Assistant is connected to to the internal MQTT server in the openWB using the following configuration (for example in /etc/mosquitto/conf.d/openwb.conf). 
+**TLDR**: Use the file *mosquittoExampleConfiguration.conf* contained in this repository to configure your eclipse MQTT server to import data from the openWB MQTT server and to send data to it. Don't forget to change IP address and device ID(s).
 
-*Alternatively, you can also use the internal MQTT server in openWB as primary MQTT server in your network and connect Home Assistant to this MQTT server.*
+From a technical perspective, this integration uses an MQTT server to obtain the data from the wallbox. The wallbox itself has its own MQTT server. Depending on your network setup, you have two options:
+- If you don't need MQTT for anything else, you can use the MQTT server of the openWB. In this case, configure the MQTT configuration in your Home Assistant to connect to the MQTT server of the openWB.
+- If you need MQTT for other integrations (for example tasmota devices, and so on), you might already run your own MQTT server and have Home Assistant connected to this server. In this case, you must establish a bridge between the server the Home Assistant is connected to (we'll call this one HA-MQTT) and the MQTT server of the openWB (we'll call this one openWB-MQTT).
+
+Let's disuss the second option in more detail.
+
+To establish a bridge, you can either start on the openWB-MQTT and export values to the HA-MQTT. This can be set up in the webinterface of openWB. Go to section Einstellungen -> System -> MQTT-Brücken and make the necessary settings. Since I'm not using this approach, I cannot give you additional hints. 
+
+Alternatively, you can start on the HA-MQTT and subscribe to topics on the openWB-MQTT. To do this, you have to change the configuration file of the MQTT server. I'm using the Mosquitto MQTT server. This is also the server you run if you're using the Home Assistant MQTT addon. To subscribe to other MQTT servers in Mosquitto, navigate to the config folder of Mosquitto, create a sub-directory conf.d (if it does not already exist), and create a file openWB.conf. In the file, you configure your bridge. See the following example:
 
 ```
 #
 # bridge to openWB Wallbox
 #
-connection openwb
-address openwb.fritz.box:1883
-start_type automatic
-topic openWB/# both 2
-## Carefull: Using above line, you allow read and write access to all topics.
-# You might want to limit write access to certain topics.
-local_clientid openwb.mosquitto
-try_private false
-cleansession true
-```
-If using the mqtt configuration above, **mqttroot** is `openWB` (this is the default value). Don't add a '/'.
+connection openwb2
+local_clientid openwb2.mosquitto
 
-If your're publishing the data from the openWB mosquitto server to another MQTT server via a bridge, the topics on the other MQTT server are usually prepended with a prefix. If this is the case, also include this prefix into the first configuration parameter, for example `somePrefix/openWB`. Then, the integration coding will subscribe to MQTT data comfing from MQTT, for example `somePrefix/openWB/system/ip_address`, or `somePrefix/openWB/chargepoint/4/get/charge_state`, and so on.
+#TODO: Replace IP address
+address 192.168.0.68:1883
+
+#Sensors Controller
+topic openWB/system/ip_address in
+topic openWB/system/version in
+topic openWB/system/lastlivevaluesJson in
+
+#Sensors per Chargepoint
+#TODO: Replace 4 by your chargepoint ID
+topic openWB/chargepoint/4/get/# in
+topic openWB/chargepoint/4/config in
+```
+
+You must change the following:
+- In line address, thange the ip 192.168.0.68 to the IP address of the openWB-MQTT server.
+- In section "Sensors per Chargepoint", replace the chargepoint ID 4 by the chargepoint ID that you want to add to Home Assistant.
+
+Then save the file and restart Mosquitto. You should now see MQTT topics with values coming from the openWB-MQTT server. 
+
+**Note**: The example configuration is not complete. Please refer to the file mosquittoExampleConfiguration.conf in this repository which contains a fully running example. Just don't forget to adapt the device IDs!
+
+The configuration option 'in' in each topic line takes care that data from the openWB-MQTT server is only imported to the HA-MQTT. Therefore, the select entity in Home Assistant does not work, yet. Let's look into the following section of the example configuration:
+```
+#Selects per Chargepoint
+#TODO: Replace 4 by your chargepoint ID
+topic openWB/chargepoint/4/get/connected_vehicle/config in
+topic openWB/set/vehicle/template/charge_template/+/chargemode/selected out
+```
+
+The last line exports a topic FROM the HA-MQTT server TO the openWB-MQTT server by specifiying the 'out' option. This topic is populated by Home Assistant when you change the Chargemode on the UI, for example from PV Charging (PV-Laden) to Instant Charging (Sofortladen).
+
+# Additional Information: Which MQTT topics refer to which entities in Home Assistant
+Check the file *MQTT-Topics.txt* in this repository for more information.
+
+**How ro read this file?**
+Let's investigate the following example entry:
+```
+SENSORS_PER_CHARGEPOINT
+       mqttTopicCurrentValue = {mqttRoot}/chargepoint/{deviceID}/{key}
+               key="get/power",
+```
+
+For the device chargepoint, there is a sensor that subscribes to the MQTT topic
+```
+                {mqttRoot}/chargepoint/{deviceID}/get/power
+# For example:  openWB    /chargepoint/0         /get/power
+```
+
+If you want to know to which sensor entity this MQTT topic is mapped, have a look into the file *const.py*.
+
+Check the list ```SENSORS_PER_CHARGEPOINT``` and locate the entry with ```key="get/power"``````.
+
+The property *name* corresponds to the entity name in Home Assistant.
+In our example, the topic above is mapped to the sensor "Ladeleistung" of the device chargepoint.
