@@ -79,7 +79,7 @@ This image shows the openWB2 status page (http://your-ip/openWB/web/settings/#/S
 ![HowToConfigureChargepoint-Status](https://github.com/a529987659852/openwbmqtt/assets/69649604/621be5ee-0a75-44ea-a652-6197ae368f49)
 
 
-# Additional Information: How to get the openWB values in Home Assistant using MQTT
+# Additional Information: How to get the openWB values from the wallbox into Home Assistant using MQTT
 
 **TLDR**: Use the file *mosquittoExampleConfiguration.conf* contained in this repository to configure your eclipse MQTT server to import data from the openWB MQTT server and to send data to it. Don't forget to change IP address and device ID(s).
 
@@ -136,6 +136,7 @@ The last line exports a topic FROM the HA-MQTT server TO the openWB-MQTT server 
 Check the file *MQTT-Topics.txt* in this repository for more information.
 
 **How ro read this file?**
+
 Let's investigate the following example entry:
 ```
 SENSORS_PER_CHARGEPOINT
@@ -151,7 +152,7 @@ For the device chargepoint, there is a sensor that subscribes to the MQTT topic
 
 If you want to know to which sensor entity this MQTT topic is mapped, have a look into the file *const.py*.
 
-Check the list ```SENSORS_PER_CHARGEPOINT``` and locate the entry with ```key="get/power"``````.
+Check the list ```SENSORS_PER_CHARGEPOINT``` and locate the entry with ```key="get/power"```.
 
 The property *name* corresponds to the entity name in Home Assistant.
-In our example, the topic above is mapped to the sensor "Ladeleistung" of the device chargepoint.
+In our example, the topic above is mapped to the sensor *Ladeleistung* of the device *chargepoint*.
