@@ -115,14 +115,14 @@ topic openWB/chargepoint/4/config in
 ```
 
 You must change the following:
-- In line address, thange the ip 192.168.0.68 to the IP address of the openWB-MQTT server.
-- In section "Sensors per Chargepoint", replace the chargepoint ID 4 by the chargepoint ID that you want to add to Home Assistant.
+- In line *address*, thange the ip *192.168.0.68* to the IP address of your openWB-MQTT server.
+- In section *Sensors per Chargepoint*, replace the chargepoint ID *4* by the chargepoint ID that you want to add to Home Assistant.
 
 Then save the file and restart Mosquitto. You should now see MQTT topics with values coming from the openWB-MQTT server. 
 
-**Note**: The example configuration is not complete. Please refer to the file mosquittoExampleConfiguration.conf in this repository which contains a fully running example. Just don't forget to adapt the device IDs!
+**Note**: The example configuration is not complete. Please refer to the file *mosquittoExampleConfiguration.conf* in this repository which contains a fully running example. Just don't forget to adapt the device IDs!
 
-The configuration option 'in' in each topic line takes care that data from the openWB-MQTT server is only imported to the HA-MQTT. Therefore, the select entity in Home Assistant does not work, yet. Let's look into the following section of the example configuration:
+The configuration option *in* in each topic line takes care that data from the openWB-MQTT server is only imported to the HA-MQTT. Therefore, the select entity in Home Assistant does not work, yet. Let's look into the following section of the example configuration:
 ```
 #Selects per Chargepoint
 #TODO: Replace 4 by your chargepoint ID
@@ -130,7 +130,7 @@ topic openWB/chargepoint/4/get/connected_vehicle/config in
 topic openWB/set/vehicle/template/charge_template/+/chargemode/selected out
 ```
 
-The last line exports a topic FROM the HA-MQTT server TO the openWB-MQTT server by specifiying the 'out' option. This topic is populated by Home Assistant when you change the Chargemode on the UI, for example from PV Charging (PV-Laden) to Instant Charging (Sofortladen).
+The last line exports a topic FROM the HA-MQTT server TO the openWB-MQTT server by specifiying the *out* option. This topic is populated by Home Assistant when you change the Chargemode on the UI, for example from PV Charging (PV-Laden) to Instant Charging (Sofortladen).
 
 # Additional Information: Which MQTT topics refer to which entities in Home Assistant
 Check the file *MQTT-Topics.txt* in this repository for more information.
