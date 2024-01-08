@@ -108,6 +108,24 @@ def _convertDateTime(x: str) -> datetime.datetime | None:
     return a
 
 
+def _umlauteEinfuegen(x: str) -> str:
+    x = x.strip('"').strip(".")[0:255]
+    if "u00fc" in x:
+        x = x.replace("\\u00fc", "ü")
+    if "u00dc" in x:
+        x = x.replace("\\u00dc", "Ü")
+    if "u00f6" in x:
+        x = x.replace("\\u00f6", "ö")
+    if "u00d6" in x:
+        x = x.replace("\\u00d6", "Ö")
+    if "u00e4" in x:
+        x = x.replace("\\u00e4", "ä")
+    if "u00c4" in x:
+        x = x.replace("\\u00c4", "Ä")
+
+    return x
+
+
 @dataclass
 class openwbSensorEntityDescription(SensorEntityDescription):
     """Enhance the sensor entity description for openWB."""
@@ -261,7 +279,7 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.strip('"').strip(".")[0:255],
+        value_fn=lambda x: _umlauteEinfuegen(x),
     ),
     openwbSensorEntityDescription(
         key="get/voltages",
