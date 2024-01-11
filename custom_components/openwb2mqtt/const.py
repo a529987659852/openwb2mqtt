@@ -44,7 +44,7 @@ PLATFORMS = [
     Platform.SELECT,
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
-    # Platform.NUMBER,
+    Platform.NUMBER,
     # Platform.SWITCH,
 ]
 
@@ -171,6 +171,7 @@ class openWBNumberEntityDescription(NumberEntityDescription):
     mqttTopicCommand: str | None = None
     mqttTopicCurrentValue: str | None = None
     mqttTopicChargeMode: str | None = None
+    value_fn: Callable | None = None
 
 
 SENSORS_PER_CHARGEPOINT = [
@@ -569,6 +570,44 @@ SELECTS_PER_CHARGEPOINT = [
         value_fn=lambda x: json.loads(x).get("id"),
         entity_registry_enabled_default=False,
     ),
+]
+
+NUMBERS_PER_CHARGEPOINT = [
+    openWBNumberEntityDescription(
+        key="manual_soc",
+        name="Aktueller SoC (Manuelles SoC Modul)",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.BATTERY,
+        # icon="mdi:battery-unknown",
+        native_min_value=0.0,
+        native_max_value=100.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        mqttTopicCommand="set/vehicle/_vehicleID_/soc_module/calculated_soc_state/manual_soc",
+        mqttTopicCurrentValue="get/connected_vehicle/soc",
+        mqttTopicChargeMode=None,
+        entity_registry_enabled_default=False,
+        value_fn=lambda x: json.loads(x).get("soc"),
+    ),
+    # openWBNumberEntityDescription(
+    #     key="pv_charging_min_current",
+    #     name="Ladestromvorgabe (PV Laden)",
+    #     native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+    #     device_class=SensorDeviceClass.POWER,
+    #     icon="mdi:current-ac",
+    #     native_min_value=0,
+    #     native_max_value=16,
+    #     native_step=1,
+    #     entity_category=EntityCategory.CONFIG,
+    #     mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/pv_charging/min_current",
+    #     mqttTopicCurrentValue="vehicle/template/charge_template/_ChargeTemplateID_",
+    #     mqttTopicChargeMode=None,
+    #     # entity_registry_enabled_default=False,
+    #     value_fn=lambda x: json.loads(x)
+    #     .get("chargemode")
+    #     .get("pv_charging")
+    #     .get("min_current"),
+    # ),
 ]
 
 SENSORS_PER_COUNTER = [
