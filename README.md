@@ -19,17 +19,19 @@ My integration provides the following device types:
   - Total charging power
   - *Note*: The sensors correspond to what the openWB shows in the upper section on the overview page.
  
-- Charge Point: This device represents a charge point of the openWB and provides, for example, the following sensors:
+- Charge Point: This device represents a charge point of the openWB and provides, for example, the following entities:
   - Charge power (total and individual phases)
   - Number of active phases
   - Current
   - Voltage
-  - Selected charge mode
   - Total energy values
   - Plug and charge states
+  - Selector for charge mode 
+  - Selector for connected vehicle (*entity hidden in HA per default*)
+  - Number entity for manual state of charge (SoC) (*entity hidden in HA per default*)
   - And so on...
   - *Note*: You should be able to configure the internal charge point as well as charge points from remote openWBs.
-    
+
 - Counter: This device represents a counter, for example, the counter that measures your inbound and outbound energy from the supplier. This device provides, for example, the following sensors:
   -  Power (total and individual phases)
   -  Current
@@ -122,7 +124,7 @@ Then save the file and restart Mosquitto. You should now see MQTT topics with va
 
 **Note**: The example configuration is not complete. Please refer to the file *mosquittoExampleConfiguration.conf* in this repository which contains a fully running example. Just don't forget to adapt the device IDs!
 
-The configuration option *in* in each topic line takes care that data from the openWB-MQTT server is only imported to the HA-MQTT. Therefore, the select entity in Home Assistant does not work, yet. Let's look into the following section of the example configuration:
+The configuration option *in* in each topic line takes care that data from the openWB-MQTT server is only imported to the HA-MQTT. Therefore, entities you can change in Home Assistant (for example number entity for manual SoC, selector for change mode, and selector for connected vehicle) don't not work, yet. Let's look into the following section of the example configuration:
 ```
 #Selects per Chargepoint
 #TODO: Replace 4 by your chargepoint ID
@@ -131,6 +133,8 @@ topic openWB/set/vehicle/template/charge_template/+/chargemode/selected out
 ```
 
 The last line exports a topic FROM the HA-MQTT server TO the openWB-MQTT server by specifiying the *out* option. This topic is populated by Home Assistant when you change the Chargemode on the UI, for example from PV Charging (PV-Laden) to Instant Charging (Sofortladen).
+
+**Note**: The example configuration is not complete. Please refer to the file *mosquittoExampleConfiguration.conf* in this repository which contains a fully running example. Just don't forget to adapt the device IDs!
 
 # Additional Information: Which MQTT topics refer to which entities in Home Assistant
 Check the file *MQTT-Topics.txt* in this repository for more information.

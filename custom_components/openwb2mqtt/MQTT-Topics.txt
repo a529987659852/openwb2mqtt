@@ -104,3 +104,12 @@ SELECTS_PER_CHARGEPOINT
                 mqttTopicCurrentValue="get/connected_vehicle/config",
                 mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/selected",
 
+                mqttTopicCurrentValue="get/connected_vehicle/info",
+                mqttTopicCommand="set/chargepoint/_chargePointID_/config/ev",
+
+NUMBERS_PER_CHARGEPOINT
+        mqttTopicCurrentValue = {mqttRoot}/chargepoint/{deviceID}/{mqttTopicCurrentValue}"
+        mqttTopicCommand = {mqttRoot}/{mqttTopicCommand}"
+        
+                mqttTopicCurrentValue="get/connected_vehicle/soc",
+                mqttTopicCommand="set/vehicle/_vehicleID_/soc_module/calculated_soc_state/manual_soc",
