@@ -42,6 +42,10 @@ async def async_setup_entry(
     if devicetype == "chargepoint":
         SELECTS_PER_CHARGEPOINT_CP = copy.deepcopy(SELECTS_PER_CHARGEPOINT)
         for description in SELECTS_PER_CHARGEPOINT_CP:
+            if "_chargePointID_" in description.mqttTopicCommand:
+                description.mqttTopicCommand = description.mqttTopicCommand.replace(
+                    "_chargePointID_", str(deviceID)
+                )
             description.mqttTopicCommand = f"{mqttRoot}/{description.mqttTopicCommand}"
             description.mqttTopicCurrentValue = f"{mqttRoot}/{devicetype}/{deviceID}/{description.mqttTopicCurrentValue}"
             selectList.append(
@@ -168,6 +172,7 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
                 publish_mqtt_message = False
         else:
             payload = commandValueToPublish
+            publish_mqtt_message = True
 
         if publish_mqtt_message:
             self.hass.components.mqtt.publish(self.hass, topic, payload)

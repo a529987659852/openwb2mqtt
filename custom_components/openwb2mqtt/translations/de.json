@@ -54,6 +54,21 @@
                     "Stop": "Stop",
                     "Standby": "Standby"
                 }
+            },
+            "selector_connected_vehicle": {
+                "state": {
+                    "Vehicle 0" : "Fahrzeug 0",
+                    "Vehicle 1" : "Fahrzeug 1",
+                    "Vehicle 2" : "Fahrzeug 2",
+                    "Vehicle 3" : "Fahrzeug 3",
+                    "Vehicle 4" : "Fahrzeug 4",
+                    "Vehicle 5" : "Fahrzeug 5",
+                    "Vehicle 6" : "Fahrzeug 6",
+                    "Vehicle 7" : "Fahrzeug 7",
+                    "Vehicle 8" : "Fahrzeug 8",
+                    "Vehicle 9" : "Fahrzeug 9",
+                    "Vehicle 10" : "Fahrzeug 10"
+                }
             }
         }
     }
