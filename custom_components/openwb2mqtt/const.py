@@ -127,14 +127,25 @@ def _umlauteEinfuegen(x: str) -> str:
 
 
 def _splitJsonLastLiveValues(x: str, valueToExtract: str, factor: int) -> float:
-    # round(1000 * float(json.loads(x).get("grid")), 0),
     x = json.loads(x).get(valueToExtract)
     if x is not None:
         try:
             floatValue = float(x)
             floatValue = round(factor * floatValue, 0)
             return floatValue
-        except (IndexError, ValueError):
+        except ValueError:
+            return None
+    else:
+        return None
+
+
+def _extractTimestampFromJson(x: str, valueToExtract: str) -> datetime.datetime:
+    x = json.loads(x).get(valueToExtract)
+    if x is not None:
+        try:
+            ts = datetime.datetime.fromtimestamp(int(x), tz=ZoneInfo("UTC"))
+            return ts
+        except ValueError:
             return None
     else:
         return None
@@ -1015,9 +1026,10 @@ SENSORS_CONTROLLER = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:clock-time-eight",
-        value_fn=lambda x: datetime.datetime.fromtimestamp(
-            int(json.loads(x).get("timestamp")), tz=ZoneInfo("UTC")
-        ),
+        # value_fn=lambda x: datetime.datetime.fromtimestamp(
+        #    int(json.loads(x).get("timestamp")), tz=ZoneInfo("UTC")
+        # ),
+        value_fn=lambda x: _extractTimestampFromJson(x, "timestamp"),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
