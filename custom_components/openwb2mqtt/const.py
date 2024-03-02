@@ -126,6 +126,20 @@ def _umlauteEinfuegen(x: str) -> str:
     return x
 
 
+def _splitJsonLastLiveValues(x: str, valueToExtract: str, factor: int) -> float:
+    # round(1000 * float(json.loads(x).get("grid")), 0),
+    x = json.loads(x).get(valueToExtract)
+    if x is not None:
+        try:
+            floatValue = float(x)
+            floatValue = round(factor * floatValue, 0)
+            return floatValue
+        except (IndexError, ValueError):
+            return None
+    else:
+        return None
+
+
 @dataclass
 class openwbSensorEntityDescription(SensorEntityDescription):
     """Enhance the sensor entity description for openWB."""
@@ -1013,7 +1027,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:transmission-tower",
-        value_fn=lambda x: round(1000 * float(json.loads(x).get("grid")), 0),
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "grid", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1023,7 +1037,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:home-lightning-bolt",
-        value_fn=lambda x: round(1000 * float(json.loads(x).get("house-power")), 0),
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "house-power", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1033,7 +1047,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:solar-power",
-        value_fn=lambda x: round(1000 * float(json.loads(x).get("pv-all")), 0),
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "pv-all", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1043,7 +1057,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:car-electric-outline",
-        value_fn=lambda x: round(1000 * float(json.loads(x).get("charging-all")), 0),
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "charging-all", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1053,7 +1067,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:battery-charging",
-        value_fn=lambda x: round(1000 * float(json.loads(x).get("bat-all-power")), 0),
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-power", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1062,6 +1076,6 @@ SENSORS_CONTROLLER = [
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
-        value_fn=lambda x: json.loads(x).get("bat-all-soc"),
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-soc", 1),
     ),
 ]
