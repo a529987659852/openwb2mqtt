@@ -97,27 +97,24 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
 
             If defined, convert and map values.
             """
+            payload = message.payload
             # Convert data if a conversion function is defined
             if self.entity_description.value_fn is not None:
-                message.payload = self.entity_description.value_fn(message.payload)
+                payload = self.entity_description.value_fn(payload)
             # Map values as defined in the value map dict.
             # First try to map integer values, then string values.
             # If no value can be mapped, use original value without conversion.
             if self.entity_description.valueMapCurrentValue is not None:
                 try:
                     self._attr_current_option = (
-                        self.entity_description.valueMapCurrentValue.get(
-                            int(message.payload)
-                        )
+                        self.entity_description.valueMapCurrentValue.get(int(payload))
                     )
                 except ValueError:
                     self._attr_current_option = (
-                        self.entity_description.valueMapCurrentValue.get(
-                            message.payload, None
-                        )
+                        self.entity_description.valueMapCurrentValue.get(payload, None)
                     )
             else:
-                self._attr_current_option = message.payload
+                self._attr_current_option = payload
 
             self.async_write_ha_state()
 
