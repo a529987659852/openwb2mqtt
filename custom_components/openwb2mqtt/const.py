@@ -101,6 +101,7 @@ def _convertDateTime(x: str) -> datetime.datetime | None:
     Assume that the local time zone is the same as the openWB time zone.
     """
     a = json.loads(x).get("timestamp")
+    a = int(a)
     if a is not None:
         dateTimeObject = datetime.datetime.strptime(a, "%m/%d/%Y, %H:%M:%S")
         dateTimeObject = dateTimeObject.astimezone(tz=None)
