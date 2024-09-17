@@ -44,6 +44,7 @@ SENSORS_PER_CHARGEPOINT
                 key="get/connected_vehicle/config",
                 key="get/connected_vehicle/soc",
                 key="get/rfid",
+                key="get/vehicle_id",
 
 SENSORS_PER_COUNTER
         mqttTopicCurrentValue = {mqttRoot}/counter/{deviceID}/get/{key}
