@@ -483,6 +483,15 @@ SENSORS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=False,
     ),
     openwbSensorEntityDescription(
+        key="get/vehicle_id",
+        name="Vehicle ID",
+        device_class=None,
+        native_unit_of_measurement=None,
+        icon="mdi:tag-multiple",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    openwbSensorEntityDescription(
         key="get/connected_vehicle/soc",
         name="Geladene Entfernung",
         device_class=None,
