@@ -22,7 +22,7 @@ class OpenWBBaseEntity:
         """Return the device information."""
         return DeviceInfo(
             name=self.device_friendly_name,
-            identifiers={(DOMAIN, self.device_friendly_name)},
+            identifiers={(DOMAIN, self.device_friendly_name, self.mqtt_root)},
             manufacturer=MANUFACTURER,
             model=MODEL,
         )
