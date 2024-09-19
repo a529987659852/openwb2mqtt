@@ -470,7 +470,7 @@ SENSORS_PER_CHARGEPOINT = [
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         icon="mdi:clock-time-eight",
-        value_fn=lambda x: _convertDateTime(x),
+        value_fn=lambda x: _extractTimestampFromJson(x, "timestamp"),
         # Example: "01/02/2024, 15:29:12"
     ),
     openwbSensorEntityDescription(
