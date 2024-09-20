@@ -22,6 +22,7 @@ SENSORS_CONTROLLER
                 key="system/ip_address",
                 key="system/version",
                 key="system/lastlivevaluesJson",
+                key="vehicle/{vehicle_id}/name",
 
 SENSORS_PER_CHARGEPOINT
         mqttTopicCurrentValue = {mqttRoot}/chargepoint/{deviceID}/{key}
