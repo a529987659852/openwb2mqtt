@@ -177,6 +177,7 @@ class openwbSelectEntityDescription(SelectEntityDescription):
     valueMapCurrentValue: dict | None = None
     mqttTopicCommand: str | None = None
     mqttTopicCurrentValue: str | None = None
+    mqttTopicOptions: list | None = None
     value_fn: Callable | None = None
     modes: list | None = None
 
@@ -602,6 +603,18 @@ SELECTS_PER_CHARGEPOINT = [
         ],
         mqttTopicCommand="set/chargepoint/_chargePointID_/config/ev",
         mqttTopicCurrentValue="get/connected_vehicle/info",
+        mqttTopicOptions=("vehicle/0/name",
+                            "vehicle/1/name",
+                            "vehicle/2/name",
+                            "vehicle/3/name",
+                            "vehicle/4/name",
+                            "vehicle/5/name",
+                            "vehicle/6/name",
+                            "vehicle/7/name",
+                            "vehicle/8/name",
+                            "vehicle/9/name",
+                            "vehicle/10/name",
+        ),
         value_fn=lambda x: json.loads(x).get("id"),
         entity_registry_enabled_default=False,
     ),
@@ -1101,3 +1114,17 @@ SENSORS_CONTROLLER = [
         value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-soc", 1),
     ),
 ]
+
+# get vehicle names
+for vehicle_id in range(11):
+    SENSORS_CONTROLLER.append(
+        openwbSensorEntityDescription(
+            key=f"vehicle/{vehicle_id}/name",
+            name=f"Vehicle Name {vehicle_id}",
+            device_class=None,
+            native_unit_of_measurement=None,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            icon="mdi:car-electric-outline",
+            value_fn=lambda x: x.replace('"', ""),
+        ),
+    )
