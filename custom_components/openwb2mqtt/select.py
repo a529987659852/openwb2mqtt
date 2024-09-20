@@ -154,7 +154,7 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
 
                 self.entity_description.valueMapCommand[f"{payload}"] = f"{vehicle_id}"
 
-            self.async_write_ha_state()
+            self.options()
 
         # Subscribe to MQTT topic and connect callback message
         if self.entity_description.mqttTopicCurrentValue is not None:
@@ -245,4 +245,3 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
             return None
 
         return state.state
-        
