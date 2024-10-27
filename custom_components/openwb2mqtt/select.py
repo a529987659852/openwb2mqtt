@@ -48,6 +48,10 @@ async def async_setup_entry(
                 )
             description.mqttTopicCommand = f"{mqttRoot}/{description.mqttTopicCommand}"
             description.mqttTopicCurrentValue = f"{mqttRoot}/{devicetype}/{deviceID}/{description.mqttTopicCurrentValue}"
+            
+            if description.mqttTopicOptions is not None:
+                description.mqttTopicOptions = [f"{mqttRoot}/{option}" for option in description.mqttTopicOptions]
+            
             selectList.append(
                 openwbSelect(
                     unique_id=f"{integrationUniqueID}",
@@ -88,6 +92,15 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
         self.deviceID = deviceID
         self.mqtt_root = mqtt_root
 
+    @property
+    def options(self) -> list[str]:
+        """Return a set of selectable options."""
+        try:
+            return self.entity_description.options
+        except Exception as ex:
+            pass
+        return []
+
     async def async_added_to_hass(self):
         """Subscribe to MQTT events."""
 
@@ -118,7 +131,30 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
 
             self.async_write_ha_state()
 
-        # Subscribe to MQTT topic and connect callack message
+        @callback
+        def option_received(message):
+            """Handle new MQTT messages.
+
+            If defined, convert and map values.
+            """
+            topic = message.topic
+            payload = message.payload.replace('"',"")
+            vehicle_id = int(topic.split("/")[-2])
+
+            self.entity_description.options[vehicle_id] = payload
+            
+            if self.entity_description.valueMapCurrentValue is not None:
+                self.entity_description.valueMapCurrentValue[vehicle_id] = payload
+            
+            # delete old vehicle name in valueMapCommand
+            if self.entity_description.valueMapCommand is not None:
+                for key, value in dict(self.entity_description.valueMapCommand).items():
+                    if value == vehicle_id:
+                        del self.entity_description.valueMapCommand[key]
+
+                self.entity_description.valueMapCommand[f"{payload}"] = f"{vehicle_id}"
+
+        # Subscribe to MQTT topic and connect callback message
         if self.entity_description.mqttTopicCurrentValue is not None:
             await mqtt.async_subscribe(
                 self.hass,
@@ -126,6 +162,16 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
                 message_received,
                 1,
             )
+
+        # Subscribe to MQTT topic options and connect callback message
+        if self.entity_description.mqttTopicOptions is not None:
+            for option in self.entity_description.mqttTopicOptions:
+                await mqtt.async_subscribe(
+                    self.hass,
+                    option,
+                    option_received,
+                    1,
+                )
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
