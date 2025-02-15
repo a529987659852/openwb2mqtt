@@ -1174,20 +1174,7 @@ BINARY_SENSORS_PER_VEHICLE = [
     ),
 ]
 
-""" # get vehicle names
-for vehicle_id in range(11):
-    SENSORS_CONTROLLER.append(
-        openwbSensorEntityDescription(
-            key=f"vehicle/{vehicle_id}/name",
-            name=f"Vehicle Name {vehicle_id}",
-            device_class=None,
-            native_unit_of_measurement=None,
-            entity_category=EntityCategory.DIAGNOSTIC,
-            icon="mdi:car-electric-outline",
-            value_fn=lambda x: x.replace('"', ""),
-        ),
-    ) """
-
+# get vehicle names
 SENSORS_CONTROLLER.extend(
     openwbSensorEntityDescription(
         key=f"vehicle/{vehicle_id}/name",
