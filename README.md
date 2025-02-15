@@ -49,7 +49,15 @@ My integration provides the following device types:
   - Power
   - Current
   - Energy values (total, today, month, year)
-  - And so on... 
+  - And so on...
+ 
+- Vehicle: This device represents a vehicle and provides, for example, the following sensors:
+  - State of charge (SOC)
+  - Range
+  - Latest change of SOC (-> timestamp)
+  - Fault string
+  - Fault state (binary sensor)
+  - And so on...
 
 # How to add this custom component to Home Assistant
 
