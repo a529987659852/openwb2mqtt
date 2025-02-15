@@ -1,4 +1,5 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
+
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -22,6 +23,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     No restart of home assistant is required.
     """
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

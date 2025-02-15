@@ -1,11 +1,16 @@
 """OpenWB Number Entity."""
+
 from __future__ import annotations
 
 import copy
 import logging
 
 from homeassistant.components import mqtt
-from homeassistant.components.number import DOMAIN, NumberEntity, NumberMode
+from homeassistant.components.number import (
+    DOMAIN as NUMBER_DOMAIN,
+    NumberEntity,
+    NumberMode,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
@@ -73,9 +78,9 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         state: float | None = None,
         # currentChargePoint: int | None = None,
         # nChargePoints: int | None = None,
-        native_min_value: float | int | None = None,
-        native_max_value: float | int | None = None,
-        native_step: float | int | None = None,
+        native_min_value: float | None = None,
+        native_max_value: float | None = None,
+        native_step: float | None = None,
         mode: NumberMode = NumberMode.AUTO,
     ) -> None:
         """Initialize the sensor and the openWB device."""
@@ -86,7 +91,7 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
 
         self.entity_description = description
         self._attr_unique_id = slugify(f"{unique_id}-{description.name}")
-        self.entity_id = f"{DOMAIN}.{unique_id}-{description.name}"
+        self.entity_id = f"{NUMBER_DOMAIN}.{unique_id}-{description.name}"
         self._attr_name = description.name
 
         # if state is not None:

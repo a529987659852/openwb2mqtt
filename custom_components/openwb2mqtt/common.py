@@ -1,3 +1,5 @@
+"""The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
+
 from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN, MANUFACTURER, MODEL

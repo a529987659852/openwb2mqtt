@@ -1,4 +1,5 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
+
 from __future__ import annotations
 
 import copy
@@ -9,7 +10,9 @@ from homeassistant.components import mqtt
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import async_get as async_get_dev_reg
+
+# Inside a component
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
@@ -24,6 +27,7 @@ from .const import (
     SENSORS_PER_CHARGEPOINT,
     SENSORS_PER_COUNTER,
     SENSORS_PER_PVGENERATOR,
+    SENSORS_PER_VEHICLE,
     openwbSensorEntityDescription,
 )
 
@@ -102,7 +106,7 @@ async def async_setup_entry(
             )
 
     if devicetype == "pv":
-        # Create sensors for batteries
+        # Create sensors for pv generator
         SENSORS_PER_PVGENERATOR_CP = copy.deepcopy(SENSORS_PER_PVGENERATOR)
         for description in SENSORS_PER_PVGENERATOR_CP:
             description.mqttTopicCurrentValue = (
@@ -113,6 +117,22 @@ async def async_setup_entry(
                     uniqueID=f"{integrationUniqueID}",
                     description=description,
                     device_friendly_name=f"PV {deviceID}",
+                    mqtt_root=mqttRoot,
+                )
+            )
+
+    if devicetype == "vehicle":
+        # Create sensors for vehicle
+        SENSORS_PER_VEHICLE_CP = copy.deepcopy(SENSORS_PER_VEHICLE)
+        for description in SENSORS_PER_VEHICLE_CP:
+            description.mqttTopicCurrentValue = (
+                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
+            )
+            sensorList.append(
+                openwbSensor(
+                    uniqueID=f"{integrationUniqueID}",
+                    description=description,
+                    device_friendly_name=f"Vehicle {deviceID}",
                     mqtt_root=mqttRoot,
                 )
             )
@@ -151,6 +171,12 @@ class openwbSensor(OpenWBBaseEntity, SensorEntity):
             """Handle new MQTT messages."""
             self._attr_native_value = message.payload
 
+            # Get device --> update from MMQT values below (e.g. IP, software version, etc.)
+            device_registry = dr.async_get(self.hass)
+            device = device_registry.async_get_device(
+                self.device_info.get("identifiers")
+            )
+
             # Convert data if a conversion function is defined
             if self.entity_description.value_fn is not None:
                 self._attr_native_value = self.entity_description.value_fn(
@@ -172,36 +198,24 @@ class openwbSensor(OpenWBBaseEntity, SensorEntity):
 
             # If MQTT message contains IP --> set up configuration_url to visit the device
             if "ip_adress" in self.entity_id:
-                device_registry = async_get_dev_reg(self.hass)
-                device = device_registry.async_get_device(
-                    self.device_info.get("identifiers")
-                )
                 device_registry.async_update_device(
                     device.id,
-                    configuration_url=f"http://{message.payload}",
+                    configuration_url=f"http://{message.payload.strip('"')}",
                 )
             # If MQTT message contains version --> set sw_version of the device
             if "version" in self.entity_id:
-                device_registry = async_get_dev_reg(self.hass)
-                device = device_registry.async_get_device(
-                    self.device_info.get("identifiers")
-                )
                 device_registry.async_update_device(
-                    device.id, sw_version=message.payload
+                    device.id, sw_version=message.payload.strip('"')
                 )
 
             if "ladepunkt" in self.entity_id:
-                device_registry = async_get_dev_reg(self.hass)
-                device = device_registry.async_get_device(
-                    self.device_info.get("identifiers")
-                )
-                try:
+                chargepointInfo = json.loads(message.payload)
+                chargepointName = chargepointInfo.get("name")
+                if chargepointName is not None:
                     device_registry.async_update_device(
                         device.id,
-                        name=json.loads(message.payload).get("name").replace('"', ""),
+                        name=chargepointName,
                     )
-                except:
-                    NotImplemented
 
             # Update icon of countPhasesInUse
             if "phases_in_use" in self.entity_description.key:

@@ -6,6 +6,7 @@
             "batterie_already_configured": "Diese Batterie wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
             "counter_already_configured": "Dieser Zähler wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
             "pv_already_configured": "Diese PV-Anlage wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
+            "vehicle_already_configured": "Dieses Fahrzeug wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
             "chargepoint_already_configured": "Dieser Ladepunkt wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein."
         },
         "step": {
@@ -27,7 +28,8 @@
                 "counter": "Zähler",
                 "chargepoint": "Ladepunkt",
                 "pv": "Photovoltaikanlage",
-                "bat": "Batterie"
+                "bat": "Batterie",
+                "vehicle": "Fahrzeug"
             }
         }
     },

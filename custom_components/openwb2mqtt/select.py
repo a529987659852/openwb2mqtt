@@ -1,11 +1,12 @@
 """OpenWB Selector."""
+
 from __future__ import annotations
 
 import copy
 import logging
 
 from homeassistant.components import mqtt
-from homeassistant.components.select import DOMAIN, SelectEntity
+from homeassistant.components.select import DOMAIN as SELECT_DOMAIN, SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
@@ -48,10 +49,12 @@ async def async_setup_entry(
                 )
             description.mqttTopicCommand = f"{mqttRoot}/{description.mqttTopicCommand}"
             description.mqttTopicCurrentValue = f"{mqttRoot}/{devicetype}/{deviceID}/{description.mqttTopicCurrentValue}"
-            
+
             if description.mqttTopicOptions is not None:
-                description.mqttTopicOptions = [f"{mqttRoot}/{option}" for option in description.mqttTopicOptions]
-            
+                description.mqttTopicOptions = [
+                    f"{mqttRoot}/{option}" for option in description.mqttTopicOptions
+                ]
+
             selectList.append(
                 openwbSelect(
                     unique_id=f"{integrationUniqueID}",
@@ -85,7 +88,7 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
         # Initialize the inverter operation mode setting entity.
         self.entity_description = description
         self._attr_unique_id = slugify(f"{unique_id}-{description.name}")
-        self.entity_id = f"{DOMAIN}.{unique_id}-{description.name}"
+        self.entity_id = f"{SELECT_DOMAIN}.{unique_id}-{description.name}"
         self._attr_name = description.name
 
         self._attr_current_option = None
@@ -95,10 +98,8 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
     @property
     def options(self) -> list[str]:
         """Return a set of selectable options."""
-        try:
+        if self.entity_description.options is not None:
             return self.entity_description.options
-        except Exception as ex:
-            pass
         return []
 
     async def async_added_to_hass(self):
@@ -138,14 +139,14 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
             If defined, convert and map values.
             """
             topic = message.topic
-            payload = message.payload.replace('"',"")
+            payload = message.payload.replace('"', "")
             vehicle_id = int(topic.split("/")[-2])
 
             self.entity_description.options[vehicle_id] = payload
-            
+
             if self.entity_description.valueMapCurrentValue is not None:
                 self.entity_description.valueMapCurrentValue[vehicle_id] = payload
-            
+
             # delete old vehicle name in valueMapCommand
             if self.entity_description.valueMapCommand is not None:
                 for key, value in dict(self.entity_description.valueMapCommand).items():

@@ -1,4 +1,5 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -41,10 +42,10 @@ from homeassistant.helpers.selector import (
 )
 
 PLATFORMS = [
-    Platform.SELECT,
-    Platform.SENSOR,
     Platform.BINARY_SENSOR,
     Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
     # Platform.SWITCH,
 ]
 
@@ -69,6 +70,7 @@ DATA_SCHEMA = vol.Schema(
                     SelectOptionDict(value="chargepoint", label="Chargepoint"),
                     SelectOptionDict(value="pv", label="PV Generator"),
                     SelectOptionDict(value="bat", label="Battery"),
+                    SelectOptionDict(value="vehicle", label="Vehicle"),
                 ],
                 mode=SelectSelectorMode.DROPDOWN,
                 translation_key="config_selector_devicetype",  # translation is maintained in translations/<lang>.json via this translation_key
@@ -101,12 +103,11 @@ def _convertDateTime(x: str) -> datetime.datetime | None:
     Assume that the local time zone is the same as the openWB time zone.
     """
     a = json.loads(x).get("timestamp")
-    a = int(a)
+    # a = int(a)
     if a is not None:
         dateTimeObject = datetime.datetime.strptime(a, "%m/%d/%Y, %H:%M:%S")
-        dateTimeObject = dateTimeObject.astimezone(tz=None)
-        return dateTimeObject
-    return a
+        return dateTimeObject.astimezone(tz=None)
+    return None
 
 
 def _umlauteEinfuegen(x: str) -> str:
@@ -132,8 +133,7 @@ def _splitJsonLastLiveValues(x: str, valueToExtract: str, factor: int) -> float:
     if x is not None:
         try:
             floatValue = float(x)
-            floatValue = round(factor * floatValue, 0)
-            return floatValue
+            return round(factor * floatValue, 0)
         except ValueError:
             return None
     else:
@@ -144,11 +144,17 @@ def _extractTimestampFromJson(x: str, valueToExtract: str) -> datetime.datetime:
     x = json.loads(x).get(valueToExtract)
     if x is not None:
         try:
-            ts = datetime.datetime.fromtimestamp(int(x), tz=ZoneInfo("UTC"))
-            return ts
+            return datetime.datetime.fromtimestamp(int(x), tz=ZoneInfo("UTC"))
         except ValueError:
             return None
     else:
+        return None
+
+
+def _extractTimestamp(x: str) -> datetime.datetime:
+    try:
+        return datetime.datetime.fromtimestamp(float(x), tz=ZoneInfo("UTC"))
+    except ValueError:
         return None
 
 
@@ -307,7 +313,8 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: _umlauteEinfuegen(x),
+        # value_fn=lambda x: _umlauteEinfuegen(x),
+        value_fn=_umlauteEinfuegen,
     ),
     openwbSensorEntityDescription(
         key="get/voltages",
@@ -603,17 +610,18 @@ SELECTS_PER_CHARGEPOINT = [
         ],
         mqttTopicCommand="set/chargepoint/_chargePointID_/config/ev",
         mqttTopicCurrentValue="get/connected_vehicle/info",
-        mqttTopicOptions=("vehicle/0/name",
-                            "vehicle/1/name",
-                            "vehicle/2/name",
-                            "vehicle/3/name",
-                            "vehicle/4/name",
-                            "vehicle/5/name",
-                            "vehicle/6/name",
-                            "vehicle/7/name",
-                            "vehicle/8/name",
-                            "vehicle/9/name",
-                            "vehicle/10/name",
+        mqttTopicOptions=(
+            "vehicle/0/name",
+            "vehicle/1/name",
+            "vehicle/2/name",
+            "vehicle/3/name",
+            "vehicle/4/name",
+            "vehicle/5/name",
+            "vehicle/6/name",
+            "vehicle/7/name",
+            "vehicle/8/name",
+            "vehicle/9/name",
+            "vehicle/10/name",
         ),
         value_fn=lambda x: json.loads(x).get("id"),
         entity_registry_enabled_default=False,
@@ -1115,7 +1123,58 @@ SENSORS_CONTROLLER = [
     ),
 ]
 
-# get vehicle names
+
+SENSORS_PER_VEHICLE = [
+    openwbSensorEntityDescription(
+        key="soc",
+        name="Ladung",
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=True,
+        suggested_display_precision=0,
+    ),
+    openwbSensorEntityDescription(
+        key="range",
+        name="Reichweite",
+        device_class=None,
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:map-marker-distance",
+        entity_registry_enabled_default=True,
+        # value_fn=lambda x: json.loads(x).get("range_charged"),
+        suggested_display_precision=0,
+    ),
+    openwbSensorEntityDescription(
+        key="soc_timestamp",
+        name="Datenaktualisierung",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        native_unit_of_measurement=None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:clock-time-eight",
+        # value_fn=lambda x: _extractTimestamp(x),
+        value_fn=_extractTimestamp,
+    ),
+    openwbSensorEntityDescription(
+        key="fault_str",
+        name="Fehlerbeschreibung",
+        device_class=None,
+        native_unit_of_measurement=None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda x: x.strip('"').strip(".")[0:255],
+    ),
+]
+
+BINARY_SENSORS_PER_VEHICLE = [
+    openwbBinarySensorEntityDescription(
+        key="fault_state",
+        name="Fehler",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+]
+
+""" # get vehicle names
 for vehicle_id in range(11):
     SENSORS_CONTROLLER.append(
         openwbSensorEntityDescription(
@@ -1127,4 +1186,17 @@ for vehicle_id in range(11):
             icon="mdi:car-electric-outline",
             value_fn=lambda x: x.replace('"', ""),
         ),
+    ) """
+
+SENSORS_CONTROLLER.extend(
+    openwbSensorEntityDescription(
+        key=f"vehicle/{vehicle_id}/name",
+        name=f"Vehicle Name {vehicle_id}",
+        device_class=None,
+        native_unit_of_measurement=None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:car-electric-outline",
+        value_fn=lambda x: x.replace('"', ""),
     )
+    for vehicle_id in range(11)
+)

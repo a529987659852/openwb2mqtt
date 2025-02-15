@@ -1,11 +1,15 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
+
 from __future__ import annotations
 
 import copy
 import logging
 
 from homeassistant.components import mqtt
-from homeassistant.components.binary_sensor import DOMAIN, BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    DOMAIN as BINARY_SENSOR_DOMAIN,
+    BinarySensorEntity,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -19,6 +23,7 @@ from .const import (
     BINARY_SENSORS_PER_CHARGEPOINT,
     BINARY_SENSORS_PER_COUNTER,
     BINARY_SENSORS_PER_PVGENERATOR,
+    BINARY_SENSORS_PER_VEHICLE,
     DEVICEID,
     DEVICETYPE,
     MQTT_ROOT_TOPIC,
@@ -118,6 +123,25 @@ async def async_setup_entry(
                 )
             )
 
+    if devicetype == "vehicle":
+        # Create sensors for pv vehicles
+        BINARY_SENSORS_PER_VEHICLE_CP = copy.deepcopy(BINARY_SENSORS_PER_VEHICLE)
+
+        for description in BINARY_SENSORS_PER_VEHICLE_CP:
+            description.mqttTopicCurrentValue = (
+                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
+            )
+            _LOGGER.debug("mqttTopic: %s", description.mqttTopicCurrentValue)
+
+            sensorList.append(
+                openwbBinarySensor(
+                    uniqueID=f"{integrationUniqueID}",
+                    description=description,
+                    device_friendly_name=f"Vehicle {deviceID}",
+                    mqtt_root=mqttRoot,
+                )
+            )
+
     async_add_entities(sensorList)
 
 
@@ -141,7 +165,7 @@ class openwbBinarySensor(OpenWBBaseEntity, BinarySensorEntity):
 
         self.entity_description = description
         self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
-        self.entity_id = f"{DOMAIN}.{uniqueID}-{description.name}"
+        self.entity_id = f"{BINARY_SENSOR_DOMAIN}.{uniqueID}-{description.name}"
         self._attr_name = description.name
 
     async def async_added_to_hass(self):

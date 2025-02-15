@@ -1,4 +1,5 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
+
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigFlow
@@ -40,6 +41,8 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured(error="pv_already_configured")
         elif user_input[DEVICETYPE] == "chargepoint":
             self._abort_if_unique_id_configured(error="chargepoint_already_configured")
+        elif user_input[DEVICETYPE] == "vehicle":
+            self._abort_if_unique_id_configured(error="vehicle_already_configured")
         else:
             self._abort_if_unique_id_configured()
 
