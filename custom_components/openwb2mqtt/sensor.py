@@ -125,9 +125,15 @@ async def async_setup_entry(
         # Create sensors for vehicle
         SENSORS_PER_VEHICLE_CP = copy.deepcopy(SENSORS_PER_VEHICLE)
         for description in SENSORS_PER_VEHICLE_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
+            # Vehicle name is not under the 'get' node
+            if description.key == "name":
+                description.mqttTopicCurrentValue = (
+                    f"{mqttRoot}/{devicetype}/{deviceID}/{description.key}"
+                )
+            else:
+                description.mqttTopicCurrentValue = (
+                    f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
+                )
             sensorList.append(
                 openwbSensor(
                     uniqueID=f"{integrationUniqueID}",
@@ -206,6 +212,15 @@ class openwbSensor(OpenWBBaseEntity, SensorEntity):
             if "version" in self.entity_id:
                 device_registry.async_update_device(
                     device.id, sw_version=message.payload.strip('"')
+                )
+
+            # Update device name for vehicle
+            if (
+                self.entity_description.key == "name"
+                and "vehicle" in self.entity_description.mqttTopicCurrentValue
+            ):
+                device_registry.async_update_device(
+                    device.id, name=message.payload.strip('"')
                 )
 
             if "ladepunkt" in self.entity_id:

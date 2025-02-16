@@ -1126,6 +1126,16 @@ SENSORS_CONTROLLER = [
 
 SENSORS_PER_VEHICLE = [
     openwbSensorEntityDescription(
+        key="name",
+        name="Bezeichnung",
+        device_class=None,
+        native_unit_of_measurement=None,
+        # state_class=SensorStateClass.MEASUREMENT,
+        entity_registry_enabled_default=True,
+        value_fn=lambda x: x.replace('"', ""),
+        icon="mdi:car",
+    ),
+    openwbSensorEntityDescription(
         key="soc",
         name="Ladung",
         device_class=SensorDeviceClass.BATTERY,
