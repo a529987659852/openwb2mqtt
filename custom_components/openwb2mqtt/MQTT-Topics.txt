@@ -82,6 +82,8 @@ SENSORS_PER_PVGENERATOR
                 key="fault_str",
 
 SENSORS_PER_VEHICLE
+        mqttTopicCurrentValue = {mqttRoot}/vehicle/{deviceID}/{key}
+                key="name",
         mqttTopicCurrentValue = {mqttRoot}/vehicle/{deviceID}/get/{key}
                 key="soc",
                 key="range",
