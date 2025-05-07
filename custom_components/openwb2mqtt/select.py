@@ -219,7 +219,7 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
             publish_mqtt_message = True
 
         if publish_mqtt_message:
-            self.hass.components.mqtt.publish(self.hass, topic, payload)
+            mqtt.publish(self.hass, topic, payload)
 
         return publish_mqtt_message
 
