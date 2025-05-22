@@ -645,25 +645,25 @@ NUMBERS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=False,
         value_fn=lambda x: json.loads(x).get("soc"),
     ),
-    # openWBNumberEntityDescription(
-    #     key="pv_charging_min_current",
-    #     name="Ladestromvorgabe (PV Laden)",
-    #     native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-    #     device_class=SensorDeviceClass.POWER,
-    #     icon="mdi:current-ac",
-    #     native_min_value=0,
-    #     native_max_value=16,
-    #     native_step=1,
-    #     entity_category=EntityCategory.CONFIG,
-    #     mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/pv_charging/min_current",
-    #     mqttTopicCurrentValue="vehicle/template/charge_template/_ChargeTemplateID_",
-    #     mqttTopicChargeMode=None,
-    #     # entity_registry_enabled_default=False,
-    #     value_fn=lambda x: json.loads(x)
-    #     .get("chargemode")
-    #     .get("pv_charging")
-    #     .get("min_current"),
-    # ),
+    openWBNumberEntityDescription(
+        key="pv_charging_min_current",
+        name="Ladestromvorgabe (PV Laden)",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.POWER,
+        icon="mdi:current-ac",
+        native_min_value=0,
+        native_max_value=16,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+        mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/pv_charging/min_current",
+        mqttTopicCurrentValue="vehicle/template/charge_template/_ChargeTemplateID_",
+        mqttTopicChargeMode=None,
+        # entity_registry_enabled_default=False,
+        value_fn=lambda x: json.loads(x)
+        .get("chargemode")
+        .get("pv_charging")
+        .get("min_current"),
+    ),
 ]
 
 SENSORS_PER_COUNTER = [
