@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -25,6 +26,7 @@ from .const import (
     SENSORS_PER_COUNTER,
     SENSORS_PER_PVGENERATOR,
     SENSORS_PER_VEHICLE,
+    openwbDynamicSensorEntityDescription,
     openwbSensorEntityDescription,
 )
 
@@ -48,14 +50,47 @@ async def async_setup_entry(
             MANUFACTURER,
         )
     elif device_type == "chargepoint":
+        # Process regular sensors
+        regular_sensors = []
+        dynamic_sensors = []
+
+        # Split the sensors into regular and dynamic sensors
+        for description in SENSORS_PER_CHARGEPOINT:
+            if isinstance(description, openwbDynamicSensorEntityDescription):
+                dynamic_sensors.append(description)
+            else:
+                regular_sensors.append(description)
+
+        # Set up regular sensors
         await async_setup_sensors(
             hass,
             config,
             async_add_entities,
-            SENSORS_PER_CHARGEPOINT,
+            regular_sensors,
             "{mqtt_root}/{device_type}/{device_id}/{key}",
             "Chargepoint",
         )
+
+        # Set up dynamic sensors
+        if dynamic_sensors:
+            mqtt_root = config.data["mqttroot"]
+            device_id = config.data["DEVICEID"]
+            device_friendly_name = f"Chargepoint {device_id}"
+
+            # Create dynamic sensors
+            entities = []
+            for description in dynamic_sensors:
+                entities.append(
+                    openwbDynamicSensor(
+                        uniqueID=config.unique_id,
+                        description=description,
+                        device_friendly_name=device_friendly_name,
+                        mqtt_root=mqtt_root,
+                        device_id=device_id,
+                    )
+                )
+
+            async_add_entities(entities)
     elif device_type == "counter":
         await async_setup_sensors(
             hass,
@@ -217,3 +252,132 @@ class openwbSensor(OpenWBBaseEntity, SensorEntity):
             "Subscribed to MQTT topic: %s",
             self.entity_description.mqttTopicCurrentValue,
         )
+
+
+class openwbDynamicSensor(OpenWBBaseEntity, SensorEntity):
+    """Representation of an openWB sensor with dynamic MQTT topic subscription."""
+
+    entity_description: openwbDynamicSensorEntityDescription
+
+    def __init__(
+        self,
+        uniqueID: str | None,
+        device_friendly_name: str,
+        mqtt_root: str,
+        description: openwbDynamicSensorEntityDescription,
+        device_id: int,
+    ) -> None:
+        """Initialize the sensor and the openWB device."""
+        super().__init__(
+            device_friendly_name=device_friendly_name,
+            mqtt_root=mqtt_root,
+        )
+
+        self.entity_description = description
+        self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
+        self.entity_id = f"sensor.{uniqueID}-{description.name}"
+        self._attr_name = description.name
+        self.mqtt_root = mqtt_root
+        self.device_id = device_id
+        self._charge_template_id = None
+        self._unsubscribe_config = None
+        self._unsubscribe_template = None
+
+    async def async_added_to_hass(self):
+        """Subscribe to MQTT events."""
+        # First, subscribe to the connected vehicle config topic to get the charge template ID
+        config_topic = f"{self.mqtt_root}/chargepoint/{self.device_id}/get/connected_vehicle/config"
+
+        @callback
+        def config_message_received(message):
+            """Handle new MQTT messages for the config topic."""
+            try:
+                payload = json.loads(message.payload)
+                new_charge_template_id = payload.get("charge_template")
+
+                if (
+                    new_charge_template_id is not None
+                    and new_charge_template_id != self._charge_template_id
+                ):
+                    _LOGGER.debug(
+                        "Charge template ID changed from %s to %s",
+                        self._charge_template_id,
+                        new_charge_template_id,
+                    )
+                    self._charge_template_id = new_charge_template_id
+
+                    # Update the subscription to the charge template topic
+                    asyncio.create_task(self._update_template_subscription())
+            except (json.JSONDecodeError, ValueError) as err:
+                _LOGGER.error("Error parsing config message: %s", err)
+
+        self._unsubscribe_config = await mqtt.async_subscribe(
+            self.hass,
+            config_topic,
+            config_message_received,
+            1,
+        )
+        _LOGGER.debug("Subscribed to config MQTT topic: %s", config_topic)
+
+    async def _update_template_subscription(self):
+        """Update the subscription to the charge template topic."""
+        # Unsubscribe from the old topic if it exists
+        if self._unsubscribe_template is not None:
+            self._unsubscribe_template()
+            self._unsubscribe_template = None
+
+        if self._charge_template_id is None:
+            _LOGGER.debug(
+                "No charge template ID available, not subscribing to template topic"
+            )
+            return
+
+        # Format the template topic with the charge template ID
+        template_topic = self.entity_description.mqttTopicTemplate.format(
+            mqtt_root=self.mqtt_root,
+            charge_template_id=self._charge_template_id,
+        )
+
+        @callback
+        def template_message_received(message):
+            """Handle new MQTT messages for the template topic."""
+            try:
+                self._attr_native_value = message.payload
+
+                # Convert data if a conversion function is defined
+                if self.entity_description.value_fn is not None:
+                    self._attr_native_value = self.entity_description.value_fn(
+                        self._attr_native_value
+                    )
+
+                # Map values as defined in the value map dict if it exists
+                if self.entity_description.valueMap is not None:
+                    try:
+                        self._attr_native_value = self.entity_description.valueMap.get(
+                            int(self._attr_native_value)
+                        )
+                    except ValueError:
+                        self._attr_native_value = self.entity_description.valueMap.get(
+                            self._attr_native_value, self._attr_native_value
+                        )
+
+                # Update entity state with value published on MQTT
+                self.async_write_ha_state()
+            except Exception as err:
+                _LOGGER.error("Error processing template message: %s", err)
+
+        self._unsubscribe_template = await mqtt.async_subscribe(
+            self.hass,
+            template_topic,
+            template_message_received,
+            1,
+        )
+        _LOGGER.debug("Subscribed to template MQTT topic: %s", template_topic)
+
+    async def async_will_remove_from_hass(self):
+        """Unsubscribe from MQTT when entity is removed."""
+        if self._unsubscribe_config is not None:
+            self._unsubscribe_config()
+
+        if self._unsubscribe_template is not None:
+            self._unsubscribe_template()

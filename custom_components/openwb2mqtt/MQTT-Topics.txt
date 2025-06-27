@@ -46,6 +46,19 @@ SENSORS_PER_CHARGEPOINT
                 key="get/connected_vehicle/soc",
                 key="get/rfid",
                 key="get/vehicle_id",
+                key="instant_charging_current", # Dynamic sensor that subscribes to the charge template topic
+
+# Dynamic Sensors and Numbers
+# These entities have dynamic MQTT topic subscriptions that change based on the connected vehicle's charge template ID
+
+# Dynamic Sensors
+        mqttTopicTemplate = {mqttRoot}/vehicle/template/charge_template/{charge_template_id}
+                key="instant_charging_current", # Extracts the instant charging current from the JSON payload
+
+# Dynamic Numbers
+        mqttTopicTemplate = {mqttRoot}/vehicle/template/charge_template/{charge_template_id}
+        mqttTopicCommandTemplate = {mqttRoot}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/current
+                key="instant_charging_current_control", # Controls the instant charging current (6-32A)
 
 SENSORS_PER_COUNTER
         mqttTopicCurrentValue = {mqttRoot}/counter/{deviceID}/get/{key}

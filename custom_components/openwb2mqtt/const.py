@@ -207,6 +207,24 @@ class openWBNumberEntityDescription(NumberEntityDescription):
     value_fn: Callable | None = None
 
 
+@dataclass
+class openwbDynamicNumberEntityDescription(openWBNumberEntityDescription):
+    """Enhance the number entity description for openWB with dynamic MQTT topic support."""
+
+    # This will be used to store the base topic pattern that will be formatted with the charge template ID
+    mqttTopicTemplate: str | None = None
+    mqttTopicCommandTemplate: str | None = None
+
+
+# Define a special sensor type for dynamic MQTT topic subscription
+@dataclass
+class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
+    """Enhance the sensor entity description for openWB with dynamic MQTT topic support."""
+
+    # This will be used to store the base topic pattern that will be formatted with the charge template ID
+    mqttTopicTemplate: str | None = None
+
+
 SENSORS_PER_CHARGEPOINT = [
     openwbSensorEntityDescription(
         key="get/currents",
@@ -510,6 +528,42 @@ SENSORS_PER_CHARGEPOINT = [
         value_fn=lambda x: json.loads(x).get("range_charged"),
         suggested_display_precision=1,
     ),
+    # Dynamic sensor for instant charging current
+    openwbDynamicSensorEntityDescription(
+        key="instant_charging_current",
+        name="Sofort-Laden Stromstärke",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:current-ac",
+        suggested_display_precision=1,
+        entity_registry_enabled_default=True,
+        # This is a template that will be formatted with the charge template ID
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # Extract the instant charging current from the JSON payload
+        value_fn=lambda x: json.loads(x)
+        .get("chargemode", {})
+        .get("instant_charging", {})
+        .get("current"),
+    ),
+    # Dynamic sensor for PV charging minimum current
+    openwbDynamicSensorEntityDescription(
+        key="pv_charging_min_current",
+        name="PV-Laden Mindest-Stromstärke",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:current-ac",
+        suggested_display_precision=1,
+        entity_registry_enabled_default=True,
+        # This is a template that will be formatted with the charge template ID
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # Extract the PV charging minimum current from the JSON payload
+        value_fn=lambda x: json.loads(x)
+        .get("chargemode", {})
+        .get("pv_charging", {})
+        .get("min_current"),
+    ),
 ]
 
 BINARY_SENSORS_PER_CHARGEPOINT = [
@@ -644,6 +698,48 @@ NUMBERS_PER_CHARGEPOINT = [
         mqttTopicChargeMode=None,
         entity_registry_enabled_default=False,
         value_fn=lambda x: json.loads(x).get("soc"),
+    ),
+    # Dynamic number for instant charging current
+    openwbDynamicNumberEntityDescription(
+        key="instant_charging_current_control",
+        name="Sofort-Laden Stromstärke Einstellung",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.CURRENT,
+        icon="mdi:current-ac",
+        native_min_value=6.0,
+        native_max_value=32.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/current",
+        # Extract the instant charging current from the JSON payload
+        value_fn=lambda x: json.loads(x)
+        .get("chargemode", {})
+        .get("instant_charging", {})
+        .get("current"),
+    ),
+    # Dynamic number for PV charging minimum current
+    openwbDynamicNumberEntityDescription(
+        key="pv_charging_min_current_control",
+        name="PV-Laden Mindest-Stromstärke Einstellung",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.CURRENT,
+        icon="mdi:current-ac",
+        native_min_value=0.0,
+        native_max_value=16.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/pv_charging/min_current",
+        # Extract the PV charging minimum current from the JSON payload
+        value_fn=lambda x: json.loads(x)
+        .get("chargemode", {})
+        .get("pv_charging", {})
+        .get("min_current"),
     ),
     # openWBNumberEntityDescription(
     #     key="pv_charging_min_current",
