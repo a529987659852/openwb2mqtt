@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 
 from homeassistant.components import mqtt
@@ -18,14 +17,10 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity
-
-# Import global values.
+from .common import OpenWBBaseEntity, async_setup_numbers
 from .const import (
-    DEVICEID,
     DEVICETYPE,
     DOMAIN as INTEGRATION_DOMAIN,
-    MQTT_ROOT_TOPIC,
     NUMBERS_PER_CHARGEPOINT,
     openWBNumberEntityDescription,
 )
@@ -36,31 +31,24 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up sensors for openWB."""
-    integrationUniqueID = config.unique_id
-    mqttRoot = config.data[MQTT_ROOT_TOPIC]
-    devicetype = config.data[DEVICETYPE]
-    deviceID = config.data[DEVICEID]
-    numberList = []
+    """Set up number entities for openWB."""
+    device_type = config.data[DEVICETYPE]
 
-    if devicetype == "chargepoint":
-        # Create numbers for chargepoint
-        NUMBERS_PER_CHARGEPOINT_CP = copy.deepcopy(NUMBERS_PER_CHARGEPOINT)
-        for description in NUMBERS_PER_CHARGEPOINT_CP:
-            description.mqttTopicCommand = f"{mqttRoot}/{description.mqttTopicCommand}"
-            description.mqttTopicCurrentValue = f"{mqttRoot}/{devicetype}/{deviceID}/{description.mqttTopicCurrentValue}"
+    if device_type == "chargepoint":
+        # Special processing for chargepoint numbers
+        def process_chargepoint_numbers(description, device_type, device_id, mqtt_root):
+            description.mqttTopicCommand = f"{mqtt_root}/{description.mqttTopicCommand}"
+            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
 
-            numberList.append(
-                openWBNumber(
-                    unique_id=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Chargepoint {deviceID}",
-                    deviceID=deviceID,
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    async_add_entities(numberList)
+        await async_setup_numbers(
+            hass,
+            config,
+            async_add_entities,
+            NUMBERS_PER_CHARGEPOINT,
+            "{mqtt_root}/{device_type}/{device_id}/{key}",  # This is a placeholder, actual topics are set in process_chargepoint_numbers
+            "Chargepoint",
+            process_chargepoint_numbers,
+        )
 
 
 class openWBNumber(OpenWBBaseEntity, NumberEntity):
@@ -70,14 +58,12 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
 
     def __init__(
         self,
-        unique_id: str,
+        uniqueID: str,
         device_friendly_name: str,
         mqtt_root: str,
         description: openWBNumberEntityDescription,
         deviceID: int | None = None,
         state: float | None = None,
-        # currentChargePoint: int | None = None,
-        # nChargePoints: int | None = None,
         native_min_value: float | None = None,
         native_max_value: float | None = None,
         native_step: float | None = None,
@@ -90,15 +76,11 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         )
 
         self.entity_description = description
-        self._attr_unique_id = slugify(f"{unique_id}-{description.name}")
-        self.entity_id = f"{NUMBER_DOMAIN}.{unique_id}-{description.name}"
+        self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
+        self.entity_id = f"{NUMBER_DOMAIN}.{uniqueID}-{description.name}"
         self._attr_name = description.name
 
-        # if state is not None:
-        #     self._attr_value = state
-        # else:
         self._attr_native_value = state
-
         self._attr_mode = mode
 
         self.deviceID = deviceID
@@ -174,17 +156,6 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
                 if "_vehicleID_" in topic:
                     topic = topic.replace("_vehicleID_", vehicle_id)
                     publish_mqtt_message = True
-        # # Modify topic: pv_charging_min_current
-        # elif slugify("Ladestromvorgabe (PV Laden)") in self.entity_id:
-        #     charge_template = self.get_assigned_charge_profile(
-        #         self.hass, INTEGRATION_DOMAIN
-        #     )
-        #     if charge_template is not None:
-        #         # Replace placeholders
-        #         if "_chargeTemplateID_" in topic:
-        #             topic = topic.replace("_chargeTemplateID_", charge_template)
-        #             publish_mqtt_message = True
-
         else:
             publish_mqtt_message = True
 
@@ -215,23 +186,3 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
             return None
 
         return state.state
-
-    # def get_assigned_charge_profile(
-    #     self, hass: HomeAssistant, domain: str
-    # ) -> int | None:
-    #     """Get the charge profile that is currently assigned to the vehicle connected to this charge point."""
-    #     ent_reg = er.async_get(hass)
-    #     unique_id = slugify(f"{self.mqtt_root}_chargepoint_{self.deviceID}_lade_profil")
-    #     charge_profile = ent_reg.async_get_entity_id(
-    #         Platform.SENSOR,
-    #         domain,
-    #         unique_id,
-    #     )
-    #     if charge_profile is None:
-    #         return None
-
-    #     state = hass.states.get(charge_profile)
-    #     if state is None:
-    #         return None
-
-    #     return state.state

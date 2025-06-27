@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import json
 import logging
 
@@ -16,12 +15,10 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity
-
-# Import global values.
+from .common import OpenWBBaseEntity, async_setup_sensors
 from .const import (
+    DEVICETYPE,
     MANUFACTURER,
-    MQTT_ROOT_TOPIC,
     SENSORS_CONTROLLER,
     SENSORS_PER_BATTERY,
     SENSORS_PER_CHARGEPOINT,
@@ -38,112 +35,75 @@ async def async_setup_entry(
     hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up sensors for openWB."""
+    device_type = config.data[DEVICETYPE]
 
-    integrationUniqueID = config.unique_id
-    mqttRoot = config.data[MQTT_ROOT_TOPIC]
-    devicetype = config.data["DEVICETYPE"]
-    deviceID = config.data["DEVICEID"]
-    sensorList = []
-
-    if devicetype == "controller":
-        SENSORS_CONTROLLER_CP = copy.deepcopy(SENSORS_CONTROLLER)
-        for description in SENSORS_CONTROLLER_CP:
-            description.mqttTopicCurrentValue = f"{mqttRoot}/{description.key}"
-            sensorList.append(
-                openwbSensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=MANUFACTURER,
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    if devicetype == "chargepoint":
-        # Create sensors for chargepoint
-        SENSORS_PER_CHARGEPOINT_CP = copy.deepcopy(SENSORS_PER_CHARGEPOINT)
-        for description in SENSORS_PER_CHARGEPOINT_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/{description.key}"
-            )
-            sensorList.append(
-                openwbSensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Chargepoint {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-    if devicetype == "counter":
-        # Create sensors for counters, for example EVU
-        SENSORS_PER_COUNTER_CP = copy.deepcopy(SENSORS_PER_COUNTER)
-        for description in SENSORS_PER_COUNTER_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            sensorList.append(
-                openwbSensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Counter {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    if devicetype == "bat":
-        # Create sensors for batteries
-        SENSORS_PER_BATTERY_CP = copy.deepcopy(SENSORS_PER_BATTERY)
-        for description in SENSORS_PER_BATTERY_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            sensorList.append(
-                openwbSensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Battery {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    if devicetype == "pv":
-        # Create sensors for pv generator
-        SENSORS_PER_PVGENERATOR_CP = copy.deepcopy(SENSORS_PER_PVGENERATOR)
-        for description in SENSORS_PER_PVGENERATOR_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            sensorList.append(
-                openwbSensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"PV {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    if devicetype == "vehicle":
-        # Create sensors for vehicle
-        SENSORS_PER_VEHICLE_CP = copy.deepcopy(SENSORS_PER_VEHICLE)
-        for description in SENSORS_PER_VEHICLE_CP:
-            # Vehicle name is not under the 'get' node
+    if device_type == "controller":
+        # Controller sensors have a different topic pattern
+        await async_setup_sensors(
+            hass,
+            config,
+            async_add_entities,
+            SENSORS_CONTROLLER,
+            "{mqtt_root}/{key}",
+            MANUFACTURER,
+        )
+    elif device_type == "chargepoint":
+        await async_setup_sensors(
+            hass,
+            config,
+            async_add_entities,
+            SENSORS_PER_CHARGEPOINT,
+            "{mqtt_root}/{device_type}/{device_id}/{key}",
+            "Chargepoint",
+        )
+    elif device_type == "counter":
+        await async_setup_sensors(
+            hass,
+            config,
+            async_add_entities,
+            SENSORS_PER_COUNTER,
+            "{mqtt_root}/{device_type}/{device_id}/get/{key}",
+            "Counter",
+        )
+    elif device_type == "bat":
+        await async_setup_sensors(
+            hass,
+            config,
+            async_add_entities,
+            SENSORS_PER_BATTERY,
+            "{mqtt_root}/{device_type}/{device_id}/get/{key}",
+            "Battery",
+        )
+    elif device_type == "pv":
+        await async_setup_sensors(
+            hass,
+            config,
+            async_add_entities,
+            SENSORS_PER_PVGENERATOR,
+            "{mqtt_root}/{device_type}/{device_id}/get/{key}",
+            "PV",
+        )
+    elif device_type == "vehicle":
+        # Vehicle sensors need special handling for the 'name' key
+        def process_vehicle_topics(description, device_type, device_id, mqtt_root):
             if description.key == "name":
                 description.mqttTopicCurrentValue = (
-                    f"{mqttRoot}/{devicetype}/{deviceID}/{description.key}"
+                    f"{mqtt_root}/{device_type}/{device_id}/{description.key}"
                 )
             else:
                 description.mqttTopicCurrentValue = (
-                    f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
+                    f"{mqtt_root}/{device_type}/{device_id}/get/{description.key}"
                 )
-            sensorList.append(
-                openwbSensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Vehicle {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
 
-    async_add_entities(sensorList)
+        await async_setup_sensors(
+            hass,
+            config,
+            async_add_entities,
+            SENSORS_PER_VEHICLE,
+            "{mqtt_root}/{device_type}/{device_id}/get/{key}",  # This will be overridden for 'name'
+            "Vehicle",
+            process_vehicle_topics,
+        )
 
 
 class openwbSensor(OpenWBBaseEntity, SensorEntity):

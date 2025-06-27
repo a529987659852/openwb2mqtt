@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 
 from homeassistant.components import mqtt
@@ -14,12 +13,10 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity
+from .common import OpenWBBaseEntity, async_setup_selects
 from .const import (
-    DEVICEID,
     DEVICETYPE,
     DOMAIN as INTEGRATION_DOMAIN,
-    MQTT_ROOT_TOPIC,
     SELECTS_PER_CHARGEPOINT,
     openwbSelectEntityDescription,
 )
@@ -33,38 +30,36 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Initialize the select and the openWB device."""
-    integrationUniqueID = config_entry.unique_id
-    mqttRoot = config_entry.data[MQTT_ROOT_TOPIC]
-    devicetype = config_entry.data[DEVICETYPE]
-    deviceID = config_entry.data[DEVICEID]
+    device_type = config_entry.data[DEVICETYPE]
 
-    selectList = []
-
-    if devicetype == "chargepoint":
-        SELECTS_PER_CHARGEPOINT_CP = copy.deepcopy(SELECTS_PER_CHARGEPOINT)
-        for description in SELECTS_PER_CHARGEPOINT_CP:
+    if device_type == "chargepoint":
+        # Special processing for chargepoint selects
+        def process_chargepoint_selects(description, device_type, device_id, mqtt_root):
+            # Process command topic
             if "_chargePointID_" in description.mqttTopicCommand:
                 description.mqttTopicCommand = description.mqttTopicCommand.replace(
-                    "_chargePointID_", str(deviceID)
+                    "_chargePointID_", str(device_id)
                 )
-            description.mqttTopicCommand = f"{mqttRoot}/{description.mqttTopicCommand}"
-            description.mqttTopicCurrentValue = f"{mqttRoot}/{devicetype}/{deviceID}/{description.mqttTopicCurrentValue}"
+            description.mqttTopicCommand = f"{mqtt_root}/{description.mqttTopicCommand}"
 
+            # Process current value topic
+            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
+
+            # Process options topics if present
             if description.mqttTopicOptions is not None:
                 description.mqttTopicOptions = [
-                    f"{mqttRoot}/{option}" for option in description.mqttTopicOptions
+                    f"{mqtt_root}/{option}" for option in description.mqttTopicOptions
                 ]
 
-            selectList.append(
-                openwbSelect(
-                    unique_id=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Chargepoint {deviceID}",
-                    deviceID=deviceID,
-                    mqtt_root=mqttRoot,
-                )
-            )
-    async_add_entities(selectList)
+        await async_setup_selects(
+            hass,
+            config_entry,
+            async_add_entities,
+            SELECTS_PER_CHARGEPOINT,
+            "{mqtt_root}/{device_type}/{device_id}/{key}",  # This is a placeholder, actual topics are set in process_chargepoint_selects
+            "Chargepoint",
+            process_chargepoint_selects,
+        )
 
 
 class openwbSelect(OpenWBBaseEntity, SelectEntity):
@@ -74,7 +69,7 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
 
     def __init__(
         self,
-        unique_id: str,
+        uniqueID: str,
         device_friendly_name: str,
         description: openwbSelectEntityDescription,
         mqtt_root: str,
@@ -87,8 +82,8 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
         )
         # Initialize the inverter operation mode setting entity.
         self.entity_description = description
-        self._attr_unique_id = slugify(f"{unique_id}-{description.name}")
-        self.entity_id = f"{SELECT_DOMAIN}.{unique_id}-{description.name}"
+        self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
+        self.entity_id = f"{SELECT_DOMAIN}.{uniqueID}-{description.name}"
         self._attr_name = description.name
 
         self._attr_current_option = None
