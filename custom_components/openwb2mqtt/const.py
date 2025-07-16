@@ -14,7 +14,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription,
 )
-from homeassistant.components.number import NumberEntityDescription
+from homeassistant.components.number import NumberEntityDescription, NumberDeviceClass
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -81,20 +81,72 @@ DATA_SCHEMA = vol.Schema(
 )
 
 
-def _splitListToFloat(x: list, desiredValueIndex: int) -> float | None:
+def _safeFloat(x: str) -> float | None:
+    """Safely convert a string to float, handling None and conversion errors."""
+    if x is None:
+        return None
+    try:
+        return float(x)
+    except (ValueError, TypeError):
+        return None
+
+
+def _safeJsonGet(x: str, key: str, default=None):
+    """Safely extract a value from a JSON string.
+
+    Handles None values and JSON decode errors.
+    """
+    if x is None:
+        return default
+    try:
+        return json.loads(x).get(key, default)
+    except json.JSONDecodeError:
+        return default
+
+
+def _safeNestedGet(x: str, *keys, default=None):
+    """Safely extract a nested value from a JSON string.
+
+    Handles None values, JSON decode errors, and missing keys.
+    """
+    if x is None:
+        return default
+    try:
+        data = json.loads(x)
+        for key in keys[:-1]:
+            data = data.get(key, {})
+        return data.get(keys[-1], default)
+    except (json.JSONDecodeError, AttributeError):
+        return default
+
+
+def _safeStringOp(x: str, op_func) -> str:
+    """Safely apply a string operation function.
+
+    Handles None values and non-string inputs.
+    """
+    if x is None:
+        return ""
+    try:
+        return op_func(x)
+    except (AttributeError, TypeError):
+        return ""
+
+
+def _splitListToFloat(x: str, desiredValueIndex: int) -> float | None:
     """Extract float value from list at a specified index.
 
     Use this function if the MQTT topic contains a list of values, and you
-    want to extract the i-th value from the list.
+    want to extract the i-th value from the string list.
     For example MQTT = [1.0, 2.0, 3.0] --> extract 3rd value --> sensor value = 3.0
     """
-    x = x.replace("[", "")
-    x = x.replace("]", "")
+    if x is None:
+        return None
     try:
-        y = float(x.split(",")[desiredValueIndex])
-    except (IndexError, ValueError):
-        y = None
-    return y
+        x = x.replace("[", "").replace("]", "")
+        return float(x.split(",")[desiredValueIndex])
+    except (IndexError, ValueError, AttributeError):
+        return None
 
 
 def _convertDateTime(x: str) -> datetime.datetime | None:
@@ -102,63 +154,88 @@ def _convertDateTime(x: str) -> datetime.datetime | None:
 
     Assume that the local time zone is the same as the openWB time zone.
     """
-    a = json.loads(x).get("timestamp")
-    # a = int(a)
-    if a is not None:
-        dateTimeObject = datetime.datetime.strptime(a, "%m/%d/%Y, %H:%M:%S")
-        return dateTimeObject.astimezone(tz=None)
+    if x is None:
+        return None
+    try:
+        a = json.loads(x).get("timestamp")
+        if a is not None:
+            try:
+                dateTimeObject = datetime.datetime.strptime(a, "%m/%d/%Y, %H:%M:%S")
+                return dateTimeObject.astimezone(tz=None)
+            except ValueError:
+                return None
+    except json.JSONDecodeError:
+        return None
     return None
 
 
 def _umlauteEinfuegen(x: str) -> str:
-    x = x.strip('"').strip(".")[0:255]
-    if "u00fc" in x:
-        x = x.replace("\\u00fc", "ü")
-    if "u00dc" in x:
-        x = x.replace("\\u00dc", "Ü")
-    if "u00f6" in x:
-        x = x.replace("\\u00f6", "ö")
-    if "u00d6" in x:
-        x = x.replace("\\u00d6", "Ö")
-    if "u00e4" in x:
-        x = x.replace("\\u00e4", "ä")
-    if "u00c4" in x:
-        x = x.replace("\\u00c4", "Ä")
-
-    return x
-
-
-def _splitJsonLastLiveValues(x: str, valueToExtract: str, factor: int) -> float:
-    x = json.loads(x).get(valueToExtract)
-    if x is not None:
-        try:
-            floatValue = float(x)
-            return round(factor * floatValue, 0)
-        except ValueError:
-            return None
+    if x is None:
+        return ""
     else:
+        try:
+            x = x.strip('"').strip(".")[0:255]
+            if "u00fc" in x:
+                x = x.replace("\\u00fc", "ü")
+            if "u00dc" in x:
+                x = x.replace("\\u00dc", "Ü")
+            if "u00f6" in x:
+                x = x.replace("\\u00f6", "ö")
+            if "u00d6" in x:
+                x = x.replace("\\u00d6", "Ö")
+            if "u00e4" in x:
+                x = x.replace("\\u00e4", "ä")
+            if "u00c4" in x:
+                x = x.replace("\\u00c4", "Ä")
+            return x
+        except AttributeError:
+            return ""
+
+
+def _splitJsonLastLiveValues(x: str, valueToExtract: str, factor: int) -> float | None:
+    if x is None:
+        return None
+    try:
+        x = json.loads(x).get(valueToExtract)
+        if x is not None:
+            try:
+                floatValue = float(x)
+                return round(factor * floatValue, 0)
+            except ValueError:
+                return None
+        else:
+            return None
+    except json.JSONDecodeError:
         return None
 
 
-def _extractTimestampFromJson(x: str, valueToExtract: str) -> datetime.datetime:
-    x = json.loads(x).get(valueToExtract)
-    if x is not None:
-        try:
-            return datetime.datetime.fromtimestamp(int(x), tz=ZoneInfo("UTC"))
-        except ValueError:
+def _extractTimestampFromJson(x: str, valueToExtract: str) -> datetime.datetime | None:
+    if x is None:
+        return None
+    try:
+        x = json.loads(x).get(valueToExtract)
+        if x is not None:
+            try:
+                return datetime.datetime.fromtimestamp(int(x), tz=ZoneInfo("UTC"))
+            except ValueError:
+                return None
+        else:
             return None
-    else:
+    except json.JSONDecodeError:
         return None
 
 
-def _extractTimestamp(x: str) -> datetime.datetime:
+def _extractTimestamp(x: str) -> datetime.datetime | None:
+    if x is None:
+        return None
     try:
         return datetime.datetime.fromtimestamp(float(x), tz=ZoneInfo("UTC"))
-    except ValueError:
+    except (ValueError, TypeError):
         return None
 
 
-@dataclass
+# @dataclass
+@dataclass(frozen=False)
 class openwbSensorEntityDescription(SensorEntityDescription):
     """Enhance the sensor entity description for openWB."""
 
@@ -167,7 +244,8 @@ class openwbSensorEntityDescription(SensorEntityDescription):
     mqttTopicCurrentValue: str | None = None
 
 
-@dataclass
+# @dataclass
+@dataclass(frozen=False)
 class openwbBinarySensorEntityDescription(BinarySensorEntityDescription):
     """Enhance the sensor entity description for openWB."""
 
@@ -175,7 +253,8 @@ class openwbBinarySensorEntityDescription(BinarySensorEntityDescription):
     mqttTopicCurrentValue: str | None = None
 
 
-@dataclass
+# @dataclass
+@dataclass(frozen=False)
 class openwbSelectEntityDescription(SelectEntityDescription):
     """Enhance the select entity description for openWB."""
 
@@ -186,6 +265,15 @@ class openwbSelectEntityDescription(SelectEntityDescription):
     mqttTopicOptions: list | None = None
     value_fn: Callable | None = None
     modes: list | None = None
+
+
+@dataclass
+class openwbDynamicSelectEntityDescription(openwbSelectEntityDescription):
+    """Enhance the select entity description for openWB with dynamic MQTT topic support."""
+
+    # This will be used to store the base topic pattern that will be formatted with the charge template ID
+    mqttTopicCurrentValueTemplate: str | None = None
+    mqttTopicCommandTemplate: str | None = None
 
 
 @dataclass
@@ -205,6 +293,25 @@ class openWBNumberEntityDescription(NumberEntityDescription):
     mqttTopicCurrentValue: str | None = None
     mqttTopicChargeMode: str | None = None
     value_fn: Callable | None = None
+
+
+@dataclass
+class openwbDynamicNumberEntityDescription(openWBNumberEntityDescription):
+    """Enhance the number entity description for openWB with dynamic MQTT topic support."""
+
+    # This will be used to store the base topic pattern that will be formatted with the charge template ID
+    mqttTopicTemplate: str | None = None
+    mqttTopicCommandTemplate: str | None = None
+    convert_before_publish_fn: Callable | None = None
+
+
+# Define a special sensor type for dynamic MQTT topic subscription
+@dataclass
+class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
+    """Enhance the sensor entity description for openWB with dynamic MQTT topic support."""
+
+    # This will be used to store the base topic pattern that will be formatted with the charge template ID
+    mqttTopicTemplate: str | None = None
 
 
 SENSORS_PER_CHARGEPOINT = [
@@ -241,7 +348,9 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         icon="mdi:counter",
     ),
     openwbSensorEntityDescription(
@@ -250,7 +359,9 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         icon="mdi:counter",
         entity_registry_enabled_default=False,
     ),
@@ -259,7 +370,9 @@ SENSORS_PER_CHARGEPOINT = [
         name="Ladestromvorgabe",
         device_class=SensorDeviceClass.CURRENT,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-        value_fn=lambda x: round(float(x), 2),
+        value_fn=lambda x: round(_safeFloat(x), 2)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=1,
         entity_registry_enabled_default=False,
         icon="mdi:current-ac",
@@ -270,7 +383,9 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:counter",
         entity_registry_enabled_default=False,
@@ -281,7 +396,7 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.strip('"').strip(".")[0:255],
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.strip('"').strip(".")[0:255]),
     ),
     openwbSensorEntityDescription(
         key="get/imported",
@@ -289,7 +404,9 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:counter",
     ),
@@ -314,7 +431,7 @@ SENSORS_PER_CHARGEPOINT = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         # value_fn=lambda x: _umlauteEinfuegen(x),
-        value_fn=_umlauteEinfuegen,
+        value_fn=_umlauteEinfuegen,  # Already handles None and AttributeError
     ),
     openwbSensorEntityDescription(
         key="get/voltages",
@@ -415,7 +532,9 @@ SENSORS_PER_CHARGEPOINT = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
-        value_fn=lambda x: json.loads(x).get("name").replace('"', ""),
+        value_fn=lambda x: _safeStringOp(
+            _safeJsonGet(x, "name"), lambda s: s.replace('"', "")
+        ),
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/info",
@@ -424,7 +543,7 @@ SENSORS_PER_CHARGEPOINT = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
-        value_fn=lambda x: json.loads(x).get("id"),
+        value_fn=lambda x: _safeJsonGet(x, "id"),
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/info",
@@ -433,7 +552,9 @@ SENSORS_PER_CHARGEPOINT = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
-        value_fn=lambda x: json.loads(x).get("name").replace('"', ""),
+        value_fn=lambda x: _safeStringOp(
+            _safeJsonGet(x, "name"), lambda s: s.replace('"', "")
+        ),
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/config",
@@ -442,14 +563,14 @@ SENSORS_PER_CHARGEPOINT = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
-        value_fn=lambda x: json.loads(x).get("charge_template"),
+        value_fn=lambda x: _safeJsonGet(x, "charge_template"),
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/config",
         name="Lademodus",
         device_class=None,
         native_unit_of_measurement=None,
-        value_fn=lambda x: json.loads(x).get("chargemode"),
+        value_fn=lambda x: _safeJsonGet(x, "chargemode"),
         valueMap={
             "standby": "Standby",
             "stop": "Stop",
@@ -468,7 +589,7 @@ SENSORS_PER_CHARGEPOINT = [
         state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=True,
         suggested_display_precision=0,
-        value_fn=lambda x: json.loads(x).get("soc"),
+        value_fn=lambda x: _safeJsonGet(x, "soc"),
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/soc",
@@ -507,8 +628,42 @@ SENSORS_PER_CHARGEPOINT = [
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:map-marker-distance",
         entity_registry_enabled_default=False,
-        value_fn=lambda x: json.loads(x).get("range_charged"),
+        value_fn=lambda x: _safeJsonGet(x, "range_charged"),
         suggested_display_precision=1,
+    ),
+    # Dynamic sensor for instant charging current
+    openwbDynamicSensorEntityDescription(
+        key="instant_charging_current",
+        name="Soll-Ladestrom (Sofortladen)",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:current-ac",
+        suggested_display_precision=1,
+        entity_registry_enabled_default=True,
+        # This is a template that will be formatted with the charge template ID
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # Extract the instant charging current from the JSON payload
+        value_fn=lambda x: _safeNestedGet(
+            x, "chargemode", "instant_charging", "current"
+        ),
+    ),
+    # Dynamic sensor for PV charging minimum current
+    openwbDynamicSensorEntityDescription(
+        key="pv_charging_min_current",
+        name="Min. Dauerstrom (PV-Laden)",
+        device_class=SensorDeviceClass.CURRENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:current-ac",
+        suggested_display_precision=1,
+        entity_registry_enabled_default=True,
+        # This is a template that will be formatted with the charge template ID
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # Extract the PV charging minimum current from the JSON payload
+        value_fn=lambda x: _safeNestedGet(
+            x, "chargemode", "pv_charging", "min_current"
+        ),
     ),
 ]
 
@@ -532,6 +687,34 @@ BINARY_SENSORS_PER_CHARGEPOINT = [
 ]
 
 SELECTS_PER_CHARGEPOINT = [
+    # Dynamic select for charge mode limitation
+    openwbDynamicSelectEntityDescription(
+        key="instant_charging_limitation",
+        entity_category=EntityCategory.CONFIG,
+        name="Begrenzung (Sofortladen)",
+        translation_key="selector_chargepoint_dynamic_chargemode",
+        valueMapCurrentValue={
+            "none": "Keine",
+            "soc": "EV-SoC",
+            "amount": "Energiemenge",
+        },
+        valueMapCommand={
+            "Keine": "none",
+            "EV-SoC": "soc",
+            "Energiemenge": "amount",
+        },
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/selected",
+        mqttTopicCurrentValueTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        options=[
+            "Keine",
+            "EV-SoC",
+            "Energiemenge",
+        ],
+        value_fn=lambda x: _safeNestedGet(
+            x, "chargemode", "instant_charging", "limit", "selected"
+        ),
+    ),
+    # Static select for charge mode
     openwbSelectEntityDescription(
         key="chargemode",
         entity_category=EntityCategory.CONFIG,
@@ -562,7 +745,7 @@ SELECTS_PER_CHARGEPOINT = [
             "Stop",
             "Standby",
         ],
-        value_fn=lambda x: json.loads(x).get("chargemode"),
+        value_fn=lambda x: _safeJsonGet(x, "chargemode"),
     ),
     openwbSelectEntityDescription(
         key="connected_vehicle",
@@ -623,7 +806,7 @@ SELECTS_PER_CHARGEPOINT = [
             "vehicle/9/name",
             "vehicle/10/name",
         ),
-        value_fn=lambda x: json.loads(x).get("id"),
+        value_fn=lambda x: _safeJsonGet(x, "id"),
         entity_registry_enabled_default=False,
     ),
 ]
@@ -633,7 +816,7 @@ NUMBERS_PER_CHARGEPOINT = [
         key="manual_soc",
         name="Aktueller SoC (Manuelles SoC Modul)",
         native_unit_of_measurement=PERCENTAGE,
-        device_class=SensorDeviceClass.BATTERY,
+        device_class=NumberDeviceClass.BATTERY,
         # icon="mdi:battery-unknown",
         native_min_value=0.0,
         native_max_value=100.0,
@@ -643,13 +826,102 @@ NUMBERS_PER_CHARGEPOINT = [
         mqttTopicCurrentValue="get/connected_vehicle/soc",
         mqttTopicChargeMode=None,
         entity_registry_enabled_default=False,
-        value_fn=lambda x: json.loads(x).get("soc"),
+        value_fn=lambda x: _safeJsonGet(x, "soc"),
+    ),
+    # Dynamic number for instant charging current
+    openwbDynamicNumberEntityDescription(
+        key="instant_charging_current_control",
+        name="Soll-Ladestrom (Sofortladen)",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=NumberDeviceClass.CURRENT,
+        icon="mdi:current-ac",
+        native_min_value=6.0,
+        native_max_value=32.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/current",
+        # Extract the instant charging current from the JSON payload
+        value_fn=lambda x: _safeNestedGet(
+            x, "chargemode", "instant_charging", "current"
+        ),
+    ),
+    # Dynamic number for PV charging minimum current
+    openwbDynamicNumberEntityDescription(
+        key="pv_charging_min_current_control",
+        name="Min. Dauerstrom (PV-Laden)",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=NumberDeviceClass.CURRENT,
+        icon="mdi:current-ac",
+        native_min_value=0.0,
+        native_max_value=16.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/pv_charging/min_current",
+        # Extract the PV charging minimum current from the JSON payload
+        value_fn=lambda x: _safeNestedGet(
+            x, "chargemode", "pv_charging", "min_current"
+        ),
+    ),
+    # Dynamic number for instant charging energy limit
+    openwbDynamicNumberEntityDescription(
+        key="instant_charging_energy_limit_control",
+        name="Energie-Limit (Sofortladen)",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=NumberDeviceClass.ENERGY,
+        # icon="mdi:current-ac",
+        native_min_value=1,
+        native_max_value=80,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/amount",
+        # Extract the current value from the JSON payload and convert from Wh to kWh
+        convert_before_publish_fn=lambda x: x * 1000.0,
+        value_fn=lambda x: _safeNestedGet(
+            x, "chargemode", "instant_charging", "limit", "amount"
+        )
+        / 1000
+        if _safeNestedGet(x, "chargemode", "instant_charging", "limit", "amount")
+        is not None
+        else None,
+    ),
+    # Dynamic number for instant charging soc limit
+    openwbDynamicNumberEntityDescription(
+        key="instant_charging_soc_limit_control",
+        name="SoC-Limit (Sofortladen)",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=NumberDeviceClass.BATTERY,
+        # icon="mdi:current-ac",
+        native_min_value=5,
+        native_max_value=100,
+        native_step=5,
+        entity_category=EntityCategory.CONFIG,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/soc",
+        ## Extract the current value from the JSON payload and convert from Wh to kWh
+        # convert_before_publish_fn=lambda x: x * 1000.0,
+        value_fn=lambda x: _safeNestedGet(
+            x, "chargemode", "instant_charging", "limit", "soc"
+        )
+        if _safeNestedGet(x, "chargemode", "instant_charging", "limit", "soc")
+        is not None
+        else None,
     ),
     # openWBNumberEntityDescription(
     #     key="pv_charging_min_current",
     #     name="Ladestromvorgabe (PV Laden)",
     #     native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-    #     device_class=SensorDeviceClass.POWER,
+    #     device_class=SensorDeviceClass.CURRENT,
     #     icon="mdi:current-ac",
     #     native_min_value=0,
     #     native_max_value=16,
@@ -801,7 +1073,7 @@ SENSORS_PER_COUNTER = [
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.strip('"').strip(".")[0:255],
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.strip('"').strip(".")[0:255]),
     ),
     openwbSensorEntityDescription(
         key="exported",
@@ -809,7 +1081,9 @@ SENSORS_PER_COUNTER = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:transmission-tower-export",
     ),
@@ -819,7 +1093,9 @@ SENSORS_PER_COUNTER = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:transmission-tower-import",
     ),
@@ -829,7 +1105,9 @@ SENSORS_PER_COUNTER = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=1,
         icon="mdi:transmission-tower-import",
     ),
@@ -839,7 +1117,9 @@ SENSORS_PER_COUNTER = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=1,
         icon="mdi:transmission-tower-export",
     ),
@@ -879,7 +1159,7 @@ SENSORS_PER_BATTERY = [
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.strip('"').strip(".")[0:255],
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.strip('"').strip(".")[0:255]),
     ),
     openwbSensorEntityDescription(
         key="exported",
@@ -887,7 +1167,9 @@ SENSORS_PER_BATTERY = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:battery-arrow-up",
     ),
@@ -897,7 +1179,9 @@ SENSORS_PER_BATTERY = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:battery-arrow-down",
     ),
@@ -907,7 +1191,9 @@ SENSORS_PER_BATTERY = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=1,
         icon="mdi:battery-arrow-down",
     ),
@@ -917,7 +1203,9 @@ SENSORS_PER_BATTERY = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=1,
         icon="mdi:battery-arrow-up",
     ),
@@ -939,7 +1227,9 @@ SENSORS_PER_PVGENERATOR = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=1,
         icon="mdi:counter",
     ),
@@ -949,7 +1239,9 @@ SENSORS_PER_PVGENERATOR = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:counter",
     ),
@@ -959,7 +1251,9 @@ SENSORS_PER_PVGENERATOR = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:counter",
     ),
@@ -969,7 +1263,9 @@ SENSORS_PER_PVGENERATOR = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(float(x) / 1000.0, 3),
+        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        if _safeFloat(x) is not None
+        else None,
         suggested_display_precision=0,
         icon="mdi:counter",
     ),
@@ -982,7 +1278,7 @@ SENSORS_PER_PVGENERATOR = [
         entity_registry_enabled_default=True,
         icon="mdi:solar-power",
         suggested_display_precision=0,
-        value_fn=lambda x: abs(float(x)),
+        value_fn=lambda x: abs(_safeFloat(x)) if _safeFloat(x) is not None else None,
     ),
     openwbSensorEntityDescription(
         key="currents",
@@ -1017,7 +1313,7 @@ SENSORS_PER_PVGENERATOR = [
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.strip('"').strip(".")[0:255],
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.strip('"').strip(".")[0:255]),
     ),
 ]
 
@@ -1039,7 +1335,7 @@ SENSORS_CONTROLLER = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:earth",
-        value_fn=lambda x: x.replace('"', ""),
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
     ),
     openwbSensorEntityDescription(
         key="system/version",
@@ -1048,7 +1344,7 @@ SENSORS_CONTROLLER = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:folder-clock",
-        value_fn=lambda x: x.replace('"', ""),
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1070,7 +1366,9 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:transmission-tower",
-        value_fn=lambda x: _splitJsonLastLiveValues(x, "grid", 1000),
+        value_fn=lambda x: _splitJsonLastLiveValues(
+            x, "grid", 1000
+        ),  # Already handles None and json.JSONDecodeError
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1080,7 +1378,9 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:home-lightning-bolt",
-        value_fn=lambda x: _splitJsonLastLiveValues(x, "house-power", 1000),
+        value_fn=lambda x: _splitJsonLastLiveValues(
+            x, "house-power", 1000
+        ),  # Already handles None and json.JSONDecodeError
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1090,7 +1390,9 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:solar-power",
-        value_fn=lambda x: _splitJsonLastLiveValues(x, "pv-all", 1000),
+        value_fn=lambda x: _splitJsonLastLiveValues(
+            x, "pv-all", 1000
+        ),  # Already handles None and json.JSONDecodeError
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1100,7 +1402,9 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:car-electric-outline",
-        value_fn=lambda x: _splitJsonLastLiveValues(x, "charging-all", 1000),
+        value_fn=lambda x: _splitJsonLastLiveValues(
+            x, "charging-all", 1000
+        ),  # Already handles None and json.JSONDecodeError
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1110,7 +1414,9 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:battery-charging",
-        value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-power", 1000),
+        value_fn=lambda x: _splitJsonLastLiveValues(
+            x, "bat-all-power", 1000
+        ),  # Already handles None and json.JSONDecodeError
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1119,7 +1425,9 @@ SENSORS_CONTROLLER = [
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
-        value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-soc", 1),
+        value_fn=lambda x: _splitJsonLastLiveValues(
+            x, "bat-all-soc", 1
+        ),  # Already handles None and json.JSONDecodeError
     ),
 ]
 
@@ -1132,7 +1440,7 @@ SENSORS_PER_VEHICLE = [
         native_unit_of_measurement=None,
         # state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=True,
-        value_fn=lambda x: x.replace('"', ""),
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
         icon="mdi:car",
     ),
     openwbSensorEntityDescription(
@@ -1171,7 +1479,7 @@ SENSORS_PER_VEHICLE = [
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda x: x.strip('"').strip(".")[0:255],
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.strip('"').strip(".")[0:255]),
     ),
 ]
 
@@ -1193,7 +1501,7 @@ SENSORS_CONTROLLER.extend(
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:car-electric-outline",
-        value_fn=lambda x: x.replace('"', ""),
+        value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
     )
     for vehicle_id in range(11)
 )

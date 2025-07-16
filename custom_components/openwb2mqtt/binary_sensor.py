@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 
 from homeassistant.components import mqtt
@@ -15,18 +14,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity
-
-# Import global values.
+from .common import OpenWBBaseEntity, async_setup_binary_sensors
 from .const import (
     BINARY_SENSORS_PER_BATTERY,
     BINARY_SENSORS_PER_CHARGEPOINT,
     BINARY_SENSORS_PER_COUNTER,
     BINARY_SENSORS_PER_PVGENERATOR,
     BINARY_SENSORS_PER_VEHICLE,
-    DEVICEID,
     DEVICETYPE,
-    MQTT_ROOT_TOPIC,
     openwbBinarySensorEntityDescription,
 )
 
@@ -36,113 +31,55 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up sensors for openWB."""
-    integrationUniqueID = config.unique_id
-    mqttRoot = config.data[MQTT_ROOT_TOPIC]
-    devicetype = config.data[DEVICETYPE]
-    deviceID = config.data[DEVICEID]
+    """Set up binary sensors for openWB."""
+    device_type = config.data[DEVICETYPE]
+    topic_template = "{mqtt_root}/{device_type}/{device_id}/get/{key}"
 
-    sensorList = []
-
-    if devicetype == "chargepoint":
-        # Create sensors for chargepoint
-        BINARY_SENSORS_PER_CHARGEPOINT_CP = copy.deepcopy(
-            BINARY_SENSORS_PER_CHARGEPOINT
+    if device_type == "chargepoint":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_CHARGEPOINT,
+            topic_template,
+            "Chargepoint",
         )
-
-        for description in BINARY_SENSORS_PER_CHARGEPOINT_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            _LOGGER.debug("mqttTopic: %s", description.mqttTopicCurrentValue)
-
-            sensorList.append(
-                openwbBinarySensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Chargepoint {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-    if devicetype == "counter":
-        # Create sensors for counter
-        BINARY_SENSORS_PER_COUNTER_CP = copy.deepcopy(BINARY_SENSORS_PER_COUNTER)
-
-        for description in BINARY_SENSORS_PER_COUNTER_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            _LOGGER.debug("mqttTopic: %s", description.mqttTopicCurrentValue)
-
-            sensorList.append(
-                openwbBinarySensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Counter {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    if devicetype == "bat":
-        # Create sensors for battery
-        BINARY_SENSORS_PER_BATTERY_CP = copy.deepcopy(BINARY_SENSORS_PER_BATTERY)
-
-        for description in BINARY_SENSORS_PER_BATTERY_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            _LOGGER.debug("mqttTopic: %s", description.mqttTopicCurrentValue)
-
-            sensorList.append(
-                openwbBinarySensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Battery {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    if devicetype == "pv":
-        # Create sensors for pv generators
-        BINARY_SENSORS_PER_PVGENERATOR_CP = copy.deepcopy(
-            BINARY_SENSORS_PER_PVGENERATOR
+    elif device_type == "counter":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_COUNTER,
+            topic_template,
+            "Counter",
         )
-
-        for description in BINARY_SENSORS_PER_PVGENERATOR_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            _LOGGER.debug("mqttTopic: %s", description.mqttTopicCurrentValue)
-
-            sensorList.append(
-                openwbBinarySensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"PV {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    if devicetype == "vehicle":
-        # Create sensors for pv vehicles
-        BINARY_SENSORS_PER_VEHICLE_CP = copy.deepcopy(BINARY_SENSORS_PER_VEHICLE)
-
-        for description in BINARY_SENSORS_PER_VEHICLE_CP:
-            description.mqttTopicCurrentValue = (
-                f"{mqttRoot}/{devicetype}/{deviceID}/get/{description.key}"
-            )
-            _LOGGER.debug("mqttTopic: %s", description.mqttTopicCurrentValue)
-
-            sensorList.append(
-                openwbBinarySensor(
-                    uniqueID=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Vehicle {deviceID}",
-                    mqtt_root=mqttRoot,
-                )
-            )
-
-    async_add_entities(sensorList)
+    elif device_type == "bat":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_BATTERY,
+            topic_template,
+            "Battery",
+        )
+    elif device_type == "pv":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_PVGENERATOR,
+            topic_template,
+            "PV",
+        )
+    elif device_type == "vehicle":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_VEHICLE,
+            topic_template,
+            "Vehicle",
+        )
 
 
 class openwbBinarySensor(OpenWBBaseEntity, BinarySensorEntity):
@@ -174,13 +111,27 @@ class openwbBinarySensor(OpenWBBaseEntity, BinarySensorEntity):
         @callback
         def message_received(message):
             """Handle new MQTT messages."""
-            try:
-                self._attr_is_on = bool(int(message.payload))
-            except ValueError:
-                if message.payload == "true":
-                    self._attr_is_on = True
-                elif message.payload == "false":
-                    self._attr_is_on = False
+            payload = message.payload
+
+            # Use custom state function if defined
+            if (
+                hasattr(self.entity_description, "state")
+                and self.entity_description.state is not None
+            ):
+                self._attr_is_on = self.entity_description.state(payload)
+            else:
+                # Default behavior
+                payload = payload.strip().lower()
+                try:
+                    self._attr_is_on = bool(int(payload))
+                except ValueError:
+                    if payload == "true" or payload == "on":
+                        self._attr_is_on = True
+                    elif payload == "false" or payload == "off":
+                        self._attr_is_on = False
+                    else:
+                        self._attr_is_on = None
+
             # Update entity state with value published on MQTT.
             self.async_write_ha_state()
 

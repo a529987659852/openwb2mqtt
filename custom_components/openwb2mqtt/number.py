@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import copy
+import asyncio
+import json
 import logging
 
 from homeassistant.components import mqtt
@@ -18,16 +19,13 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity
-
-# Import global values.
+from .common import OpenWBBaseEntity, async_setup_numbers
 from .const import (
-    DEVICEID,
     DEVICETYPE,
     DOMAIN as INTEGRATION_DOMAIN,
-    MQTT_ROOT_TOPIC,
     NUMBERS_PER_CHARGEPOINT,
     openWBNumberEntityDescription,
+    openwbDynamicNumberEntityDescription,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,31 +34,57 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up sensors for openWB."""
-    integrationUniqueID = config.unique_id
-    mqttRoot = config.data[MQTT_ROOT_TOPIC]
-    devicetype = config.data[DEVICETYPE]
-    deviceID = config.data[DEVICEID]
-    numberList = []
+    """Set up number entities for openWB."""
+    device_type = config.data[DEVICETYPE]
 
-    if devicetype == "chargepoint":
-        # Create numbers for chargepoint
-        NUMBERS_PER_CHARGEPOINT_CP = copy.deepcopy(NUMBERS_PER_CHARGEPOINT)
-        for description in NUMBERS_PER_CHARGEPOINT_CP:
-            description.mqttTopicCommand = f"{mqttRoot}/{description.mqttTopicCommand}"
-            description.mqttTopicCurrentValue = f"{mqttRoot}/{devicetype}/{deviceID}/{description.mqttTopicCurrentValue}"
+    if device_type == "chargepoint":
+        # Process regular numbers and dynamic numbers separately
+        regular_numbers = []
+        dynamic_numbers = []
 
-            numberList.append(
-                openWBNumber(
-                    unique_id=f"{integrationUniqueID}",
-                    description=description,
-                    device_friendly_name=f"Chargepoint {deviceID}",
-                    deviceID=deviceID,
-                    mqtt_root=mqttRoot,
+        # Split the numbers into regular and dynamic numbers
+        for description in NUMBERS_PER_CHARGEPOINT:
+            if isinstance(description, openwbDynamicNumberEntityDescription):
+                dynamic_numbers.append(description)
+            else:
+                regular_numbers.append(description)
+
+        # Special processing for regular chargepoint numbers
+        def process_chargepoint_numbers(description, device_type, device_id, mqtt_root):
+            description.mqttTopicCommand = f"{mqtt_root}/{description.mqttTopicCommand}"
+            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
+
+        # Set up regular numbers
+        await async_setup_numbers(
+            hass,
+            config,
+            async_add_entities,
+            regular_numbers,
+            "{mqtt_root}/{device_type}/{device_id}/{key}",  # This is a placeholder, actual topics are set in process_chargepoint_numbers
+            "Chargepoint",
+            process_chargepoint_numbers,
+        )
+
+        # Set up dynamic numbers
+        if dynamic_numbers:
+            mqtt_root = config.data["mqttroot"]
+            device_id = config.data["DEVICEID"]
+            device_friendly_name = f"Chargepoint {device_id}"
+
+            # Create dynamic numbers
+            entities = []
+            for description in dynamic_numbers:
+                entities.append(
+                    openwbDynamicNumber(
+                        uniqueID=config.unique_id,
+                        description=description,
+                        device_friendly_name=device_friendly_name,
+                        mqtt_root=mqtt_root,
+                        device_id=device_id,
+                    )
                 )
-            )
 
-    async_add_entities(numberList)
+            async_add_entities(entities)
 
 
 class openWBNumber(OpenWBBaseEntity, NumberEntity):
@@ -70,14 +94,12 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
 
     def __init__(
         self,
-        unique_id: str,
+        uniqueID: str,
         device_friendly_name: str,
         mqtt_root: str,
         description: openWBNumberEntityDescription,
         deviceID: int | None = None,
         state: float | None = None,
-        # currentChargePoint: int | None = None,
-        # nChargePoints: int | None = None,
         native_min_value: float | None = None,
         native_max_value: float | None = None,
         native_step: float | None = None,
@@ -90,15 +112,11 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         )
 
         self.entity_description = description
-        self._attr_unique_id = slugify(f"{unique_id}-{description.name}")
-        self.entity_id = f"{NUMBER_DOMAIN}.{unique_id}-{description.name}"
+        self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
+        self.entity_id = f"{NUMBER_DOMAIN}.{uniqueID}-{description.name}"
         self._attr_name = description.name
 
-        # if state is not None:
-        #     self._attr_value = state
-        # else:
         self._attr_native_value = state
-
         self._attr_mode = mode
 
         self.deviceID = deviceID
@@ -166,25 +184,14 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         publish_mqtt_message = False
         topic = self.entity_description.mqttTopicCommand
 
-        # Modify topic: Manual SoC
-        if slugify("Aktueller SoC (Manuelles SoC Modul)") in self.entity_id:
+        # For the special SoC topic, we need to replace the _vehicleID_ placeholder
+        # with the actual vehicle ID associated with this charge point
+        if "_vehicleID_" in topic:
             vehicle_id = self.get_assigned_vehicle(self.hass, INTEGRATION_DOMAIN)
             if vehicle_id is not None:
-                # Replace placeholders
-                if "_vehicleID_" in topic:
-                    topic = topic.replace("_vehicleID_", vehicle_id)
-                    publish_mqtt_message = True
-        # # Modify topic: pv_charging_min_current
-        # elif slugify("Ladestromvorgabe (PV Laden)") in self.entity_id:
-        #     charge_template = self.get_assigned_charge_profile(
-        #         self.hass, INTEGRATION_DOMAIN
-        #     )
-        #     if charge_template is not None:
-        #         # Replace placeholders
-        #         if "_chargeTemplateID_" in topic:
-        #             topic = topic.replace("_chargeTemplateID_", charge_template)
-        #             publish_mqtt_message = True
-
+                # Replace the placeholder with the actual vehicle ID
+                topic = topic.replace("_vehicleID_", vehicle_id)
+                publish_mqtt_message = True
         else:
             publish_mqtt_message = True
 
@@ -194,7 +201,8 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         _LOGGER.debug("MQTT payload: %s", payload)
 
         if publish_mqtt_message:
-            self.hass.components.mqtt.publish(self.hass, topic, payload)
+            # Use the modified topic with replaced placeholders
+            mqtt.publish(self.hass, topic, payload)
 
         return publish_mqtt_message
 
@@ -216,22 +224,158 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
 
         return state.state
 
-    # def get_assigned_charge_profile(
-    #     self, hass: HomeAssistant, domain: str
-    # ) -> int | None:
-    #     """Get the charge profile that is currently assigned to the vehicle connected to this charge point."""
-    #     ent_reg = er.async_get(hass)
-    #     unique_id = slugify(f"{self.mqtt_root}_chargepoint_{self.deviceID}_lade_profil")
-    #     charge_profile = ent_reg.async_get_entity_id(
-    #         Platform.SENSOR,
-    #         domain,
-    #         unique_id,
-    #     )
-    #     if charge_profile is None:
-    #         return None
 
-    #     state = hass.states.get(charge_profile)
-    #     if state is None:
-    #         return None
+class openwbDynamicNumber(OpenWBBaseEntity, NumberEntity):
+    """Entity representing openWB numbers with dynamic MQTT topic subscription."""
 
-    #     return state.state
+    entity_description: openwbDynamicNumberEntityDescription
+
+    def __init__(
+        self,
+        uniqueID: str,
+        device_friendly_name: str,
+        mqtt_root: str,
+        description: openwbDynamicNumberEntityDescription,
+        device_id: int,
+        state: float | None = None,
+        mode: NumberMode = NumberMode.AUTO,
+    ) -> None:
+        """Initialize the number entity and the openWB device."""
+        super().__init__(
+            device_friendly_name=device_friendly_name,
+            mqtt_root=mqtt_root,
+        )
+
+        self.entity_description = description
+        self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
+        self.entity_id = f"{NUMBER_DOMAIN}.{uniqueID}-{description.name}"
+        self._attr_name = description.name
+
+        self._attr_native_value = state
+        self._attr_mode = mode
+
+        self.mqtt_root = mqtt_root
+        self.device_id = device_id
+        self._charge_template_id = None
+        self._unsubscribe_config = None
+        self._unsubscribe_template = None
+
+        # Set native min/max/step values from the entity description
+        self._attr_native_min_value = description.native_min_value
+        self._attr_native_max_value = description.native_max_value
+        self._attr_native_step = description.native_step
+
+    async def async_added_to_hass(self):
+        """Subscribe to MQTT events."""
+        # First, subscribe to the connected vehicle config topic to get the charge template ID
+        config_topic = f"{self.mqtt_root}/chargepoint/{self.device_id}/get/connected_vehicle/config"
+
+        @callback
+        def config_message_received(message):
+            """Handle new MQTT messages for the config topic."""
+            try:
+                payload = json.loads(message.payload)
+                new_charge_template_id = payload.get("charge_template")
+
+                if (
+                    new_charge_template_id is not None
+                    and new_charge_template_id != self._charge_template_id
+                ):
+                    _LOGGER.debug(
+                        "Charge template ID changed from %s to %s",
+                        self._charge_template_id,
+                        new_charge_template_id,
+                    )
+                    self._charge_template_id = new_charge_template_id
+
+                    # Update the subscription to the charge template topic
+                    asyncio.create_task(self._update_template_subscription())
+            except (json.JSONDecodeError, ValueError) as err:
+                _LOGGER.error("Error parsing config message: %s", err)
+
+        self._unsubscribe_config = await mqtt.async_subscribe(
+            self.hass,
+            config_topic,
+            config_message_received,
+            1,
+        )
+        _LOGGER.debug("Subscribed to config MQTT topic: %s", config_topic)
+
+    async def _update_template_subscription(self):
+        """Update the subscription to the charge template topic."""
+        # Unsubscribe from the old topic if it exists
+        if self._unsubscribe_template is not None:
+            self._unsubscribe_template()
+            self._unsubscribe_template = None
+
+        if self._charge_template_id is None:
+            _LOGGER.debug(
+                "No charge template ID available, not subscribing to template topic"
+            )
+            return
+
+        # Format the template topic with the charge template ID
+        template_topic = self.entity_description.mqttTopicTemplate.format(
+            mqtt_root=self.mqtt_root,
+            charge_template_id=self._charge_template_id,
+        )
+
+        @callback
+        def template_message_received(message):
+            """Handle new MQTT messages for the template topic."""
+            try:
+                self._attr_native_value = message.payload
+
+                # Convert data if a conversion function is defined
+                if self.entity_description.value_fn is not None:
+                    self._attr_native_value = self.entity_description.value_fn(
+                        self._attr_native_value
+                    )
+
+                # Update entity state with value published on MQTT
+                self.async_write_ha_state()
+            except Exception as err:
+                _LOGGER.error("Error processing template message: %s", err)
+
+        self._unsubscribe_template = await mqtt.async_subscribe(
+            self.hass,
+            template_topic,
+            template_message_received,
+            1,
+        )
+        _LOGGER.debug("Subscribed to template MQTT topic: %s", template_topic)
+
+    async def async_will_remove_from_hass(self):
+        """Unsubscribe from MQTT when entity is removed."""
+        if self._unsubscribe_config is not None:
+            self._unsubscribe_config()
+
+        if self._unsubscribe_template is not None:
+            self._unsubscribe_template()
+
+    async def async_set_native_value(self, value):
+        """Update the current value.
+
+        After set_native_value --> the result is published to MQTT.
+        But the HA number shall only change when the MQTT message on the template topic is received.
+        Only then, openWB has changed the setting as well.
+        """
+        if self._charge_template_id is None:
+            _LOGGER.error("Cannot set value: No charge template ID available")
+            return
+
+        # Format the command topic with the charge template ID
+        command_topic = self.entity_description.mqttTopicCommandTemplate.format(
+            mqtt_root=self.mqtt_root,
+            charge_template_id=self._charge_template_id,
+        )
+
+        # Check if this value must be converted before publishing
+        if self.entity_description.convert_before_publish_fn is not None:
+            value = self.entity_description.convert_before_publish_fn(value)
+
+        # Convert value to integer as required by openWB
+        payload = str(int(value))
+
+        _LOGGER.debug("Publishing to MQTT topic %s: %s", command_topic, payload)
+        mqtt.publish(self.hass, command_topic, payload)
