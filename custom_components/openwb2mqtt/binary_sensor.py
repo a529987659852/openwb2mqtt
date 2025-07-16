@@ -111,13 +111,27 @@ class openwbBinarySensor(OpenWBBaseEntity, BinarySensorEntity):
         @callback
         def message_received(message):
             """Handle new MQTT messages."""
-            try:
-                self._attr_is_on = bool(int(message.payload))
-            except ValueError:
-                if message.payload == "true":
-                    self._attr_is_on = True
-                elif message.payload == "false":
-                    self._attr_is_on = False
+            payload = message.payload
+
+            # Use custom state function if defined
+            if (
+                hasattr(self.entity_description, "state")
+                and self.entity_description.state is not None
+            ):
+                self._attr_is_on = self.entity_description.state(payload)
+            else:
+                # Default behavior
+                payload = payload.strip().lower()
+                try:
+                    self._attr_is_on = bool(int(payload))
+                except ValueError:
+                    if payload == "true" or payload == "on":
+                        self._attr_is_on = True
+                    elif payload == "false" or payload == "off":
+                        self._attr_is_on = False
+                    else:
+                        self._attr_is_on = None
+
             # Update entity state with value published on MQTT.
             self.async_write_ha_state()
 
