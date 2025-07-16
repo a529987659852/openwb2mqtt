@@ -160,8 +160,8 @@ class openwbSensor(OpenWBBaseEntity, SensorEntity):
         )
 
         self.entity_description = description
-        self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
-        self.entity_id = f"sensor.{uniqueID}-{description.name}"
+        self._attr_unique_id = slugify(f"{uniqueID}_{description.name}")
+        self.entity_id = f"sensor.{slugify(f'{uniqueID}_{description.name}')}"
         self._attr_name = description.name
 
     async def async_added_to_hass(self):
@@ -274,8 +274,8 @@ class openwbDynamicSensor(OpenWBBaseEntity, SensorEntity):
         )
 
         self.entity_description = description
-        self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
-        self.entity_id = f"sensor.{uniqueID}-{description.name}"
+        self._attr_unique_id = slugify(f"{uniqueID}_{description.name}")
+        self.entity_id = f"sensor.{slugify(f'{uniqueID}_{description.name}')}"
         self._attr_name = description.name
         self.mqtt_root = mqtt_root
         self.device_id = device_id

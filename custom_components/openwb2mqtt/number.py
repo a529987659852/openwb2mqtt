@@ -184,14 +184,14 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         publish_mqtt_message = False
         topic = self.entity_description.mqttTopicCommand
 
-        # Modify topic: Manual SoC
-        if slugify("Aktueller SoC (Manuelles SoC Modul)") in self.entity_id:
+        # For the special SoC topic, we need to replace the _vehicleID_ placeholder
+        # with the actual vehicle ID associated with this charge point
+        if "_vehicleID_" in topic:
             vehicle_id = self.get_assigned_vehicle(self.hass, INTEGRATION_DOMAIN)
             if vehicle_id is not None:
-                # Replace placeholders
-                if "_vehicleID_" in topic:
-                    topic = topic.replace("_vehicleID_", vehicle_id)
-                    publish_mqtt_message = True
+                # Replace the placeholder with the actual vehicle ID
+                topic = topic.replace("_vehicleID_", vehicle_id)
+                publish_mqtt_message = True
         else:
             publish_mqtt_message = True
 
@@ -201,6 +201,7 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         _LOGGER.debug("MQTT payload: %s", payload)
 
         if publish_mqtt_message:
+            # Use the modified topic with replaced placeholders
             mqtt.publish(self.hass, topic, payload)
 
         return publish_mqtt_message
@@ -368,6 +369,10 @@ class openwbDynamicNumber(OpenWBBaseEntity, NumberEntity):
             mqtt_root=self.mqtt_root,
             charge_template_id=self._charge_template_id,
         )
+
+        # Check if this value must be converted before publishing
+        if self.entity_description.convert_before_publish_fn is not None:
+            value = self.entity_description.convert_before_publish_fn(value)
 
         # Convert value to integer as required by openWB
         payload = str(int(value))
