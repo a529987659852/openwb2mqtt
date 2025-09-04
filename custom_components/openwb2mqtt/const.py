@@ -917,6 +917,25 @@ NUMBERS_PER_CHARGEPOINT = [
         is not None
         else None,
     ),
+    # Dynamic number for price-based charging maximum price
+    openwbDynamicNumberEntityDescription(
+        key="price_based_charging_max_price",
+        name="Max. Preis (Strompreisbasiertes Laden)",
+        native_unit_of_measurement="ct/kWh",
+        device_class=None,
+        icon="mdi:currency-eur",
+        native_min_value=0.0,
+        native_max_value=1000.0,
+        native_step=0.1,
+        entity_category=EntityCategory.CONFIG,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
+        # Extract the current value from the JSON payload
+        value_fn=lambda x: _safeNestedGet(x, "et", "max_price") * 100000,
+        convert_before_publish_fn=lambda x: x / 100000.0
+    ),
     # openWBNumberEntityDescription(
     #     key="pv_charging_min_current",
     #     name="Ladestromvorgabe (PV Laden)",
