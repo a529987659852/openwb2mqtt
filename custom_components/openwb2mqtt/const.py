@@ -22,6 +22,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.components.switch import SwitchEntityDescription
+from homeassistant.components.lock import LockEntityDescription
+
 from homeassistant.const import (
     PERCENTAGE,
     Platform,
@@ -46,6 +48,7 @@ PLATFORMS = [
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
+    Platform.LOCK,
     # Platform.SWITCH,
 ]
 
@@ -313,7 +316,19 @@ class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
     # This will be used to store the base topic pattern that will be formatted with the charge template ID
     mqttTopicTemplate: str | None = None
 
+# Definiert die notwendigen Attribute für das openWB Lock
+@dataclass
+class openwbLockEntityDescription(LockEntityDescription):
+    """A class that describes lock entities."""
 
+    mqttTopicCommand: str | None = None
+    mqttTopicCurrentValue: str | None = None
+    payload_lock: str = "true"
+    payload_unlock: str = "false"
+    state_locked: str = "true"
+    state_unlocked: str = "false"
+    
+    
 SENSORS_PER_CHARGEPOINT = [
     openwbSensorEntityDescription(
         key="get/currents",
@@ -1508,6 +1523,20 @@ BINARY_SENSORS_PER_VEHICLE = [
         name="Fehler",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+]
+
+# Lock Entitäten pro Ladepunkt
+LOCKS_PER_CHARGEPOINT = [
+    openwbLockEntityDescription(
+        key="manual_lock",
+        name="Manuelle Sperre",
+        entity_category=EntityCategory.CONFIG,
+        translation_key="manual_lock",
+        # openWB Topic-Struktur: openWB/chargepoint/2/set/manual_lock
+        mqttTopicCommand="set/manual_lock",
+        # Laut Ihrer Beschreibung wird der State über dasselbe Topic gelesen
+        mqttTopicCurrentValue="set/manual_lock", 
     ),
 ]
 
