@@ -23,13 +23,10 @@ from .const import (
     MQTT_ROOT_TOPIC, # Hinzugefügt
     DEVICEID, # Hinzugefügt
 )
-# Womöglich muss auch 'copy' importiert werden, da es in der vorgeschlagenen Lösung verwendet wurde
 import copy # Hinzufügen, falls es fehlt und in async_setup_entry verwendet wird
 
 _LOGGER = logging.getLogger(__name__)
 
-
-# In lock.py
 async def async_setup_entry(
     hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -40,27 +37,20 @@ async def async_setup_entry(
     integration_unique_id = config.unique_id
     device_friendly_name = f"Chargepoint {device_id}"
     
-    # Stellen Sie sicher, dass das Setup nur für Ladepunkte läuft
+    # setup for chargepoint only
     if device_type != "chargepoint":
         return
 
     entities = []
     
-    # Durchlaufe eine Kopie der Descriptions, um die Topics zu formatieren
     descriptions_copy = copy.deepcopy(LOCKS_PER_CHARGEPOINT) 
 
     for description in descriptions_copy:
-        # Template für das openWB Topic: {mqtt_root}/chargepoint/{device_id}/set/manual_lock
-        full_key = description.key # Dies ist "manual_lock" aus const.py
+        # Template for the mqtt topic: {mqtt_root}/chargepoint/{device_id}/set/manual_lock
+        full_key = description.key
 
-        # Wir müssen den vollständigen Topic-Pfad (ohne den MQTT-Root) kennen, 
-        # um ihn in die Description zu schreiben.
-        # Da der Key in const.py "manual_lock" ist, müssen wir "set/" davor setzen.
-        
-        # Das Topic, das openWB verwendet, ist: openWB/chargepoint/X/set/manual_lock
         base_topic = f"{mqtt_root}/{device_type}/{device_id}"
         
-        # Den vollständigen Topic-Pfad für den Befehl und Status setzen
         description.mqttTopicCurrentValue = f"{base_topic}/set/{full_key}"
         description.mqttTopicCommand = f"{base_topic}/set/{full_key}"
         
@@ -103,7 +93,6 @@ class openWBLock(OpenWBBaseEntity, LockEntity):
         self.deviceID = deviceID
         self._attr_is_locked = None # Anfangszustand
 
-        # Die vollen Topics werden in async_setup_entities (in common.py) formatiert und in description gespeichert
         self._state_topic = self.entity_description.mqttTopicCurrentValue
         self._command_topic = self.entity_description.mqttTopicCommand
 
@@ -130,7 +119,7 @@ class openWBLock(OpenWBBaseEntity, LockEntity):
 
             self.async_write_ha_state()
 
-        # Abonnieren des State-Topics (welches hier dem Command-Topic entspricht)
+        # Abonnieren des State-Topics
         self._unsubscribe_state = await mqtt.async_subscribe(
             self.hass,
             self._state_topic,
@@ -153,4 +142,5 @@ class openWBLock(OpenWBBaseEntity, LockEntity):
     async def async_will_remove_from_hass(self):
         """Unsubscribe from MQTT when entity is removed."""
         if hasattr(self, '_unsubscribe_state') and self._unsubscribe_state is not None:
+
             self._unsubscribe_state()
