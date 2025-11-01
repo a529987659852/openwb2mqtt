@@ -316,7 +316,6 @@ class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
     # This will be used to store the base topic pattern that will be formatted with the charge template ID
     mqttTopicTemplate: str | None = None
 
-# Definiert die notwendigen Attribute für das openWB Lock
 @dataclass
 class openwbLockEntityDescription(LockEntityDescription):
     """A class that describes lock entities."""
@@ -1526,7 +1525,7 @@ BINARY_SENSORS_PER_VEHICLE = [
     ),
 ]
 
-# Lock Entitäten pro Ladepunkt
+# Lock-entities per chargepoint
 LOCKS_PER_CHARGEPOINT = [
     openwbLockEntityDescription(
         key="manual_lock",
