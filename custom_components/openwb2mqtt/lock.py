@@ -20,10 +20,10 @@ from .const import (
     DEVICETYPE,
     LOCKS_PER_CHARGEPOINT,
     openwbLockEntityDescription,
-    MQTT_ROOT_TOPIC, # Hinzugefügt
+    MQTT_ROOT_TOPIC,
     DEVICEID, # Hinzugefügt
 )
-import copy # Hinzufügen, falls es fehlt und in async_setup_entry verwendet wird
+import copy
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,3 +144,4 @@ class openWBLock(OpenWBBaseEntity, LockEntity):
         if hasattr(self, '_unsubscribe_state') and self._unsubscribe_state is not None:
 
             self._unsubscribe_state()
+
