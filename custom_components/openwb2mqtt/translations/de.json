@@ -1,23 +1,43 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Diese Integration ist schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic ein, wählen Sie einen anderen Gerätetyp aus oder geben Sie eine andere Geräte-ID ein.",
-            "controller_already_configured": "Diese Wallbox wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic ein.",
-            "batterie_already_configured": "Diese Batterie wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
-            "counter_already_configured": "Dieser Zähler wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
-            "pv_already_configured": "Diese PV-Anlage wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
-            "vehicle_already_configured": "Dieses Fahrzeug wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein.",
-            "chargepoint_already_configured": "Dieser Ladepunkt wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic oder eine andere Geräte-ID ein."
+            "already_configured": "Diese Integration ist schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix ein, wählen Sie einen anderen Gerätetyp aus oder geben Sie eine andere Geräte-ID ein.",
+            "controller_already_configured": "Diese Wallbox wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix ein.",
+            "batterie_already_configured": "Diese Batterie wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
+            "counter_already_configured": "Dieser Zähler wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
+            "pv_already_configured": "Diese PV-Anlage wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
+            "vehicle_already_configured": "Dieses Fahrzeug wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
+            "chargepoint_already_configured": "Dieser Ladepunkt wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein."
         },
         "step": {
             "user": {
                 "data": {
+                    "communication_method": "Schnittstelle",
+                    "wallbox_power": "Max. Ladeleistung"
+                },
+                "description": "Wählen Sie die Kommunikationsschnittstelle und die Ladeleistung aus.",
+                "title": "openWB (Version 2)"
+            },
+            "details_api": {
+                "data": {
+                    "api_prefix": "API Präfix",
+                    "api_url": "API URL",
+                    "api_token": "API Token",
+                    "DEVICETYPE": "Gerätetyp",
+                    "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)"
+
+                },
+                "description": "Geben Sie einen Präfix ein, der die openWB eindeutig identifiziert.\n*Wenn Sie von MQTT zur API-Schnittstelle migrieren, geben Sie hier das MQTT-Wurzeltopic ein und die Integration erzeugt die Sensoren etc. mit den gleichen IDs.*\n\nPassen Sie die IP-Adresse an und wählen Sie den Gerätetyp aus.\nBei den  Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage und Batterie ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.",
+                "title": "API-Einstellungen für openWB"
+            },
+            "details_mqtt": {
+                "data": {
                     "mqttroot": "MQTT-Wurzeltopic",
-                    "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)",
-                    "DEVICETYPE": "Gerätetyp"
+                    "DEVICETYPE": "Gerätetyp",
+                    "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)"
                 },
                 "description": "Geben Sie ein MQTT-Wurzelptopic ein, unter dem die openWB auf Ihrem MQTT-Server erreichbar ist und wählen Sie den Gerätetyp aus. \nBei den  Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage und Batterie ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.\nBeim Gerätetyp Wallbox tragen Sie die Geräte-ID 0 ein.",
-                "title": "openWB (Version 2) mittels MQTT"
+                "title": "MQTT-Einstellungen für openWB"
             }
         }
     },

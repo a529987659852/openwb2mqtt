@@ -17,16 +17,23 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .common import OpenWBBaseEntity, async_setup_numbers
 from .const import (
+    COMM_METHOD_HTTP,
+    COMMUNICATION_METHOD,
+    CONF_WALLBOX_POWER,
+    DEVICEID,
     DEVICETYPE,
-    DOMAIN as INTEGRATION_DOMAIN,
+    DOMAIN,
+    MANUFACTURER,
     NUMBERS_PER_CHARGEPOINT,
-    openWBNumberEntityDescription,
     openwbDynamicNumberEntityDescription,
+    openWBNumberEntityDescription,
 )
+from .coordinator import OpenWB2MqttDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,55 +43,140 @@ async def async_setup_entry(
 ) -> None:
     """Set up number entities for openWB."""
     device_type = config.data[DEVICETYPE]
+    entities_to_add = []
 
-    if device_type == "chargepoint":
-        # Process regular numbers and dynamic numbers separately
-        regular_numbers = []
-        dynamic_numbers = []
+    if config.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
+        coordinator = hass.data[DOMAIN][config.entry_id]
+        if device_type == "chargepoint":
+            for description in NUMBERS_PER_CHARGEPOINT:
+                if description.api_key is None:
+                    continue
+                entities_to_add.append(
+                    OpenWB2MqttApiNumber(coordinator, description, config)
+                )
+        async_add_entities(entities_to_add)
+    else:
+        if device_type == "chargepoint":
+            regular_numbers = [
+                desc
+                for desc in NUMBERS_PER_CHARGEPOINT
+                if not isinstance(desc, openwbDynamicNumberEntityDescription)
+            ]
+            dynamic_numbers = [
+                desc
+                for desc in NUMBERS_PER_CHARGEPOINT
+                if isinstance(desc, openwbDynamicNumberEntityDescription)
+            ]
 
-        # Split the numbers into regular and dynamic numbers
-        for description in NUMBERS_PER_CHARGEPOINT:
-            if isinstance(description, openwbDynamicNumberEntityDescription):
-                dynamic_numbers.append(description)
-            else:
-                regular_numbers.append(description)
+            def process_chargepoint_numbers(
+                description, device_type, device_id, mqtt_root
+            ):
+                description.mqttTopicCommand = (
+                    f"{mqtt_root}/{description.mqttTopicCommand}"
+                )
+                description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
 
-        # Special processing for regular chargepoint numbers
-        def process_chargepoint_numbers(description, device_type, device_id, mqtt_root):
-            description.mqttTopicCommand = f"{mqtt_root}/{description.mqttTopicCommand}"
-            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
+            await async_setup_numbers(
+                hass,
+                config,
+                async_add_entities,
+                regular_numbers,
+                "{mqtt_root}/{device_type}/{device_id}/{key}",
+                "Chargepoint",
+                process_chargepoint_numbers,
+            )
 
-        # Set up regular numbers
-        await async_setup_numbers(
-            hass,
-            config,
-            async_add_entities,
-            regular_numbers,
-            "{mqtt_root}/{device_type}/{device_id}/{key}",  # This is a placeholder, actual topics are set in process_chargepoint_numbers
-            "Chargepoint",
-            process_chargepoint_numbers,
-        )
-
-        # Set up dynamic numbers
-        if dynamic_numbers:
-            mqtt_root = config.data["mqttroot"]
-            device_id = config.data["DEVICEID"]
-            device_friendly_name = f"Chargepoint {device_id}"
-
-            # Create dynamic numbers
-            entities = []
-            for description in dynamic_numbers:
-                entities.append(
+            if dynamic_numbers:
+                entities = [
                     openwbDynamicNumber(
                         uniqueID=config.unique_id,
-                        description=description,
-                        device_friendly_name=device_friendly_name,
-                        mqtt_root=mqtt_root,
-                        device_id=device_id,
+                        description=desc,
+                        device_friendly_name=f"Chargepoint {config.data['DEVICEID']}",
+                        mqtt_root=config.data["mqttroot"],
+                        device_id=config.data["DEVICEID"],
                     )
-                )
+                    for desc in dynamic_numbers
+                ]
+                async_add_entities(entities)
 
-            async_add_entities(entities)
+
+class OpenWB2MqttApiNumber(CoordinatorEntity, NumberEntity):
+    """Entity representing openWB numbers that are updated via API."""
+
+    entity_description: openWBNumberEntityDescription
+
+    def __init__(
+        self,
+        coordinator: OpenWB2MqttDataUpdateCoordinator,
+        description: openWBNumberEntityDescription,
+        config_entry: ConfigEntry,
+    ) -> None:
+        """Initialize the number entity."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self.config_entry = config_entry
+        self._attr_unique_id = slugify(f"{config_entry.title}_{description.name}")
+        self.entity_id = (
+            f"{NUMBER_DOMAIN}.{slugify(f'{config_entry.title}_{description.name}')}"
+        )
+
+    @property
+    def native_max_value(self) -> float:
+        """Return the maximum value."""
+        if self.entity_description.key in {
+            "instant_charging_current_control",
+            "pv_charging_min_current_control",
+        }:
+            power = self.config_entry.options.get(
+                CONF_WALLBOX_POWER, self.config_entry.data.get(CONF_WALLBOX_POWER)
+            )
+            if power == "11":
+                return 16
+            return 32
+        return self.entity_description.native_max_value
+
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        if self.coordinator.data is None:
+            return None
+        if self.entity_description.api_key:
+            key = self.entity_description.api_key
+        else:
+            key = self.entity_description.key
+        value = self.coordinator.data.get(key)
+        if self.entity_description.value_fn:
+            return self.entity_description.value_fn(value)
+        return value
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update the current value."""
+        # if self.entity_description.api_key:
+        #    key = self.entity_description.api_key
+        # else:
+        #    key = self.entity_description.key.replace("_control", "")
+
+        # if key == "chargecurrent":
+        if self.entity_description.api_key == "chargecurrent":
+            await self.coordinator.client.async_get_data(
+                f"?chargecurrent={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
+            )
+        elif self.entity_description.api_key == "minimal_permanent_current":
+            await self.coordinator.client.async_get_data(
+                f"?minimal_permanent_current={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
+            )
+        # else:
+        #    await self.coordinator.client.async_set_data({key: value})
+        await self.coordinator.async_request_refresh()
+
+    @property
+    def device_info(self):
+        """Return the device info."""
+        return {
+            "identifiers": {(DOMAIN, self.config_entry.title)},
+            "name": self.config_entry.title,
+            "manufacturer": MANUFACTURER,
+        }
 
 
 class openWBNumber(OpenWBBaseEntity, NumberEntity):
@@ -187,7 +279,7 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         # For the special SoC topic, we need to replace the _vehicleID_ placeholder
         # with the actual vehicle ID associated with this charge point
         if "_vehicleID_" in topic:
-            vehicle_id = self.get_assigned_vehicle(self.hass, INTEGRATION_DOMAIN)
+            vehicle_id = self.get_assigned_vehicle(self.hass, DOMAIN)
             if vehicle_id is not None:
                 # Replace the placeholder with the actual vehicle ID
                 topic = topic.replace("_vehicleID_", vehicle_id)
@@ -210,15 +302,15 @@ class openWBNumber(OpenWBBaseEntity, NumberEntity):
         """Get the vehicle that is currently assigned to this charge point."""
         ent_reg = er.async_get(hass)
         unique_id = slugify(f"{self.mqtt_root}_chargepoint_{self.deviceID}_fahrzeug_id")
-        vehicle_id = ent_reg.async_get_entity_id(
+        vehicle_id_entity = ent_reg.async_get_entity_id(
             Platform.SENSOR,
             domain,
             unique_id,
         )
-        if vehicle_id is None:
+        if vehicle_id_entity is None:
             return None
 
-        state = hass.states.get(vehicle_id)
+        state = hass.states.get(vehicle_id_entity)
         if state is None:
             return None
 
