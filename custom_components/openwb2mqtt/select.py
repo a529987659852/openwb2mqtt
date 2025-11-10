@@ -13,16 +13,22 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .common import OpenWBBaseEntity, async_setup_selects
 from .const import (
+    COMM_METHOD_HTTP,
+    COMMUNICATION_METHOD,
+    DEVICEID,
     DEVICETYPE,
-    DOMAIN as INTEGRATION_DOMAIN,
+    DOMAIN,
+    MANUFACTURER,
     SELECTS_PER_CHARGEPOINT,
     openwbDynamicSelectEntityDescription,
     openwbSelectEntityDescription,
 )
+from .coordinator import OpenWB2MqttDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,67 +40,143 @@ async def async_setup_entry(
 ) -> None:
     """Initialize the select and the openWB device."""
     device_type = config_entry.data[DEVICETYPE]
+    entities_to_add = []
 
-    if device_type == "chargepoint":
-        # Split the selects into regular and dynamic selects
-        regular_selects = []
-        dynamic_selects = []
-
-        for description in SELECTS_PER_CHARGEPOINT:
-            if isinstance(description, openwbDynamicSelectEntityDescription):
-                dynamic_selects.append(description)
-            else:
-                regular_selects.append(description)
-
-        # Special processing for regular chargepoint selects
-        def process_chargepoint_selects(description, device_type, device_id, mqtt_root):
-            # Process command topic
-            if "_chargePointID_" in description.mqttTopicCommand:
-                description.mqttTopicCommand = description.mqttTopicCommand.replace(
-                    "_chargePointID_", str(device_id)
+    if config_entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
+        coordinator = hass.data[DOMAIN][config_entry.entry_id]
+        if device_type == "chargepoint":
+            for description in SELECTS_PER_CHARGEPOINT:
+                if description.api_key is None:
+                    continue
+                entities_to_add.append(
+                    OpenWB2MqttApiSelect(coordinator, description, config_entry)
                 )
-            description.mqttTopicCommand = f"{mqtt_root}/{description.mqttTopicCommand}"
+        async_add_entities(entities_to_add)
+    else:
+        if device_type == "chargepoint":
+            regular_selects = [
+                desc
+                for desc in SELECTS_PER_CHARGEPOINT
+                if not isinstance(desc, openwbDynamicSelectEntityDescription)
+            ]
+            dynamic_selects = [
+                desc
+                for desc in SELECTS_PER_CHARGEPOINT
+                if isinstance(desc, openwbDynamicSelectEntityDescription)
+            ]
 
-            # Process current value topic
-            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
+            def process_chargepoint_selects(
+                description, device_type, device_id, mqtt_root
+            ):
+                if "_chargePointID_" in description.mqttTopicCommand:
+                    description.mqttTopicCommand = description.mqttTopicCommand.replace(
+                        "_chargePointID_", str(device_id)
+                    )
+                description.mqttTopicCommand = (
+                    f"{mqtt_root}/{description.mqttTopicCommand}"
+                )
+                description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
+                if description.mqttTopicOptions is not None:
+                    description.mqttTopicOptions = [
+                        f"{mqtt_root}/{option}"
+                        for option in description.mqttTopicOptions
+                    ]
 
-            # Process options topics if present
-            if description.mqttTopicOptions is not None:
-                description.mqttTopicOptions = [
-                    f"{mqtt_root}/{option}" for option in description.mqttTopicOptions
-                ]
+            await async_setup_selects(
+                hass,
+                config_entry,
+                async_add_entities,
+                regular_selects,
+                "{mqtt_root}/{device_type}/{device_id}/{key}",
+                "Chargepoint",
+                process_chargepoint_selects,
+            )
 
-        # Set up regular selects
-        await async_setup_selects(
-            hass,
-            config_entry,
-            async_add_entities,
-            regular_selects,
-            "{mqtt_root}/{device_type}/{device_id}/{key}",  # This is a placeholder, actual topics are set in process_chargepoint_selects
-            "Chargepoint",
-            process_chargepoint_selects,
-        )
-
-        # Set up dynamic selects
-        if dynamic_selects:
-            mqtt_root = config_entry.data["mqttroot"]
-            device_id = config_entry.data["DEVICEID"]
-            device_friendly_name = f"Chargepoint {device_id}"
-
-            # Create dynamic selects
-            entities = []
-            for description in dynamic_selects:
-                entities.append(
+            if dynamic_selects:
+                entities = [
                     openwbDynamicSelect(
                         uniqueID=config_entry.unique_id,
-                        description=description,
-                        device_friendly_name=device_friendly_name,
-                        mqtt_root=mqtt_root,
-                        deviceID=device_id,
+                        description=desc,
+                        device_friendly_name=f"Chargepoint {config_entry.data['DEVICEID']}",
+                        mqtt_root=config_entry.data["mqttroot"],
+                        deviceID=config_entry.data["DEVICEID"],
                     )
-                )
+                    for desc in dynamic_selects
+                ]
+                async_add_entities(entities)
 
-            async_add_entities(entities)
+
+class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
+    """Entity representing a select entity that is updated via API."""
+
+    entity_description: openwbSelectEntityDescription
+
+    def __init__(
+        self,
+        coordinator: OpenWB2MqttDataUpdateCoordinator,
+        description: openwbSelectEntityDescription,
+        config_entry: ConfigEntry,
+    ) -> None:
+        """Initialize the select entity."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self.config_entry = config_entry
+        self._attr_unique_id = slugify(f"{config_entry.title}_{description.name}")
+        self.entity_id = (
+            f"{SELECT_DOMAIN}.{slugify(f'{config_entry.title}_{description.name}')}"
+        )
+
+    @property
+    def options(self) -> list[str]:
+        """Return a set of selectable options."""
+        if self.entity_description.api_value_map_command:
+            return list(self.entity_description.api_value_map_command.keys())
+        return self.entity_description.options
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the selected option."""
+        if self.coordinator.data is None:
+            return None
+        key = self.entity_description.api_key
+        value = self.coordinator.data.get(key)
+        if self.entity_description.api_value_fn:
+            value = self.entity_description.api_value_fn(value)
+        elif self.entity_description.value_fn:
+            value = self.entity_description.value_fn(value)
+        if self.entity_description.valueMapCurrentValue:
+            return self.entity_description.valueMapCurrentValue.get(value)
+        return value
+
+    async def async_select_option(self, option: str) -> None:
+        """Change the selected option."""
+        # Optimistic update
+        self._attr_current_option = option
+        self.async_write_ha_state()
+
+        if self.entity_description.api_value_map_command:
+            api_value = self.entity_description.api_value_map_command.get(option)
+            # Manually construct the payload string
+            payload = f"set_chargemode={api_value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
+        else:
+            # Fallback for other select entities
+            key = self.entity_description.api_key
+            value = option
+            if self.entity_description.valueMapCommand:
+                value = self.entity_description.valueMapCommand.get(option)
+            payload = {key: value}
+
+        await self.coordinator.client.async_set_data(payload)
+        await self.coordinator.async_request_refresh()
+
+    @property
+    def device_info(self):
+        """Return the device info."""
+        return {
+            "identifiers": {(DOMAIN, self.config_entry.title)},
+            "name": self.config_entry.title,
+            "manufacturer": MANUFACTURER,
+        }
 
 
 class openwbSelect(OpenWBBaseEntity, SelectEntity):
@@ -221,18 +303,15 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
         publish_mqtt_message = False
         topic = self.entity_description.mqttTopicCommand
 
-        # Ensure topic has mqtt_root prefix
         if not topic.startswith(f"{self.mqtt_root}/"):
             topic = f"{self.mqtt_root}/{topic}"
 
-        # Modify topic: Chargemode
         if "chargemode" in self.entity_description.key:
             chargeTemplateID = self.get_assigned_charge_profile(
                 self.hass,
-                INTEGRATION_DOMAIN,
+                DOMAIN,
             )
             if chargeTemplateID is not None:
-                # Replace placeholders
                 if "_chargeTemplateID_" in topic:
                     topic = topic.replace("_chargeTemplateID_", chargeTemplateID)
 

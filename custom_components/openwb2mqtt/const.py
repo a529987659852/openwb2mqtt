@@ -14,7 +14,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription,
 )
-from homeassistant.components.number import NumberEntityDescription, NumberDeviceClass
+from homeassistant.components.number import NumberDeviceClass, NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -54,8 +54,15 @@ PLATFORMS = [
 
 # Global values
 DOMAIN = "openwb2mqtt"
+COMMUNICATION_METHOD = "communication_method"
+COMM_METHOD_MQTT = "MQTT"
+COMM_METHOD_HTTP = "HTTP API"
+API_URL = "api_url"
+API_TOKEN = "api_token"
+CONF_WALLBOX_POWER = "wallbox_power"
 MQTT_ROOT_TOPIC = "mqttroot"
 MQTT_ROOT_TOPIC_DEFAULT = "openWB"
+API_PREFIX = "api_prefix"
 DEVICETYPE = "DEVICETYPE"
 DEVICEID = "DEVICEID"
 MANUFACTURER = "openWB"
@@ -64,8 +71,31 @@ MODEL = "openWB"
 # Data schema required by configuration flow
 DATA_SCHEMA = vol.Schema(
     {
+        vol.Required(COMMUNICATION_METHOD, default=COMM_METHOD_HTTP): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    SelectOptionDict(value=COMM_METHOD_MQTT, label="MQTT"),
+                    SelectOptionDict(value=COMM_METHOD_HTTP, label="HTTP API"),
+                ],
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    SelectOptionDict(value="11", label="11 kW"),
+                    SelectOptionDict(value="22", label="22 kW"),
+                ],
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        ),
+    }
+)
+
+DATA_SCHEMA_MQTT = vol.Schema(
+    {
         vol.Required(MQTT_ROOT_TOPIC, default=MQTT_ROOT_TOPIC_DEFAULT): cv.string,
-        vol.Required(DEVICETYPE): SelectSelector(
+        vol.Required(DEVICETYPE, default="chargepoint"): SelectSelector(
             SelectSelectorConfig(
                 options=[
                     SelectOptionDict(value="controller", label="Controller"),
@@ -79,7 +109,45 @@ DATA_SCHEMA = vol.Schema(
                 translation_key="config_selector_devicetype",  # translation is maintained in translations/<lang>.json via this translation_key
             )
         ),
-        vol.Required(DEVICEID): cv.positive_int,
+        vol.Required(DEVICEID, default=4): cv.positive_int,
+    }
+)
+
+DATA_SCHEMA_API = vol.Schema(
+    {
+        vol.Required(API_PREFIX, default=MQTT_ROOT_TOPIC_DEFAULT): cv.string,
+        vol.Optional(API_URL): cv.string,
+        vol.Optional(API_TOKEN): cv.string,
+        vol.Required(DEVICETYPE, default="chargepoint"): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    # Some device types are not available via api
+                    # SelectOptionDict(value="controller", label="Controller"),
+                    SelectOptionDict(value="counter", label="Counter"),
+                    SelectOptionDict(value="chargepoint", label="Chargepoint"),
+                    SelectOptionDict(value="pv", label="PV Generator"),
+                    SelectOptionDict(value="bat", label="Battery"),
+                    # SelectOptionDict(value="vehicle", label="Vehicle"),
+                ],
+                mode=SelectSelectorMode.DROPDOWN,
+                translation_key="config_selector_devicetype",  # translation is maintained in translations/<lang>.json via this translation_key
+            )
+        ),
+        vol.Required(DEVICEID, default=4): cv.positive_int,
+    }
+)
+
+DATA_SCHEMA_OPTIONS = vol.Schema(
+    {
+        vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    SelectOptionDict(value="11", label="11 kW"),
+                    SelectOptionDict(value="22", label="22 kW"),
+                ],
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        )
     }
 )
 
@@ -146,8 +214,11 @@ def _splitListToFloat(x: str, desiredValueIndex: int) -> float | None:
     if x is None:
         return None
     try:
-        x = x.replace("[", "").replace("]", "")
-        return float(x.split(",")[desiredValueIndex])
+        if isinstance(x, str):
+            x = x.replace("[", "").replace("]", "")
+            return float(x.split(",")[desiredValueIndex])
+        else:
+            return float(x[desiredValueIndex])
     except (IndexError, ValueError, AttributeError):
         return None
 
@@ -243,8 +314,10 @@ class openwbSensorEntityDescription(SensorEntityDescription):
     """Enhance the sensor entity description for openWB."""
 
     value_fn: Callable | None = None
+    api_value_fn: Callable | None = None
     valueMap: dict | None = None
     mqttTopicCurrentValue: str | None = None
+    api_key: str | None = None
 
 
 # @dataclass
@@ -254,6 +327,7 @@ class openwbBinarySensorEntityDescription(BinarySensorEntityDescription):
 
     state: Callable | None = None
     mqttTopicCurrentValue: str | None = None
+    api_key: str | None = None
 
 
 # @dataclass
@@ -262,12 +336,15 @@ class openwbSelectEntityDescription(SelectEntityDescription):
     """Enhance the select entity description for openWB."""
 
     valueMapCommand: dict | None = None
+    api_value_map_command: dict | None = None
     valueMapCurrentValue: dict | None = None
     mqttTopicCommand: str | None = None
     mqttTopicCurrentValue: str | None = None
     mqttTopicOptions: list | None = None
     value_fn: Callable | None = None
+    api_value_fn: Callable | None = None
     modes: list | None = None
+    api_key: str | None = None
 
 
 @dataclass
@@ -296,6 +373,7 @@ class openWBNumberEntityDescription(NumberEntityDescription):
     mqttTopicCurrentValue: str | None = None
     mqttTopicChargeMode: str | None = None
     value_fn: Callable | None = None
+    api_key: str | None = None
 
 
 @dataclass
@@ -332,6 +410,7 @@ class openwbLockEntityDescription(LockEntityDescription):
 SENSORS_PER_CHARGEPOINT = [
     openwbSensorEntityDescription(
         key="get/currents",
+        api_key="currents",
         name="Strom (L1)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -341,6 +420,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/currents",
+        api_key="currents",
         name="Strom (L2)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -350,6 +430,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/currents",
+        api_key="currents",
         name="Strom (L3)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -359,6 +440,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/daily_imported",
+        api_key=None,
         name="Geladene Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -370,6 +452,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/daily_exported",
+        api_key=None,
         name="Entladene Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -382,6 +465,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/evse_current",
+        api_key="evse_current",
         name="Ladestromvorgabe",
         device_class=SensorDeviceClass.CURRENT,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
@@ -394,6 +478,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/exported",
+        api_key="exported",
         name="Entladene Energie (Gesamt)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -407,6 +492,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/fault_str",
+        api_key="fault_str",
         name="Fehlerbeschreibung",
         device_class=None,
         native_unit_of_measurement=None,
@@ -415,6 +501,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/imported",
+        api_key="imported",
         name="Geladene Energie (Gesamt)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -427,12 +514,14 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/phases_in_use",
+        api_key="phases_in_use",
         name="Aktive Phasen",
         device_class=None,
         native_unit_of_measurement=None,
     ),
     openwbSensorEntityDescription(
         key="get/power",
+        api_key="power",
         name="Ladeleistung",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -441,15 +530,16 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/state_str",
+        api_key="state_str",
         name="Ladezustand",
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        # value_fn=lambda x: _umlauteEinfuegen(x),
-        value_fn=_umlauteEinfuegen,  # Already handles None and AttributeError
+        value_fn=_umlauteEinfuegen,
     ),
     openwbSensorEntityDescription(
         key="get/voltages",
+        api_key="voltages",
         name="Spannung (L1)",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -459,6 +549,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/voltages",
+        api_key="voltages",
         name="Spannung (L2)",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -468,6 +559,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/voltages",
+        api_key="voltages",
         name="Spannung (L3)",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -477,36 +569,37 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/power_factors",
+        api_key=None,
         name="Leistungsfaktor (L1)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=None,
-        # icon=,
         value_fn=lambda x: _splitListToFloat(x, 0),
         entity_registry_enabled_default=False,
     ),
     openwbSensorEntityDescription(
         key="get/power_factors",
+        api_key=None,
         name="Leistungsfaktor (L2)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=None,
-        # icon=,
         value_fn=lambda x: _splitListToFloat(x, 1),
         entity_registry_enabled_default=False,
     ),
     openwbSensorEntityDescription(
         key="get/power_factors",
+        api_key=None,
         name="Leistungsfaktor (L3)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=None,
-        # icon=,
         value_fn=lambda x: _splitListToFloat(x, 2),
         entity_registry_enabled_default=False,
     ),
     openwbSensorEntityDescription(
         key="get/powers",
+        api_key="powers",
         name="Leistung (L1)",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -516,6 +609,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/powers",
+        api_key="powers",
         name="Leistung (L2)",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -525,6 +619,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/powers",
+        api_key="powers",
         name="Leistung (L3)",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -534,34 +629,37 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/frequency",
+        api_key=None,
         name="Frequenz",
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfFrequency.HERTZ,
-        # icon="mdi:current-ac",
     ),
     openwbSensorEntityDescription(
         key="config",
+        api_key=None,
         name="Ladepunkt",
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
-        value_fn=lambda x: _safeStringOp(
-            _safeJsonGet(x, "name"), lambda s: s.replace('"', "")
-        ),
+        # value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
+        value_fn=lambda x: _safeJsonGet(x, "name"),
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/info",
+        api_key="vehicle_id",
         name="Fahrzeug-ID",
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
         value_fn=lambda x: _safeJsonGet(x, "id"),
+        api_value_fn=lambda x: x,
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/info",
+        api_key=None,
         name="Fahrzeug",
         device_class=None,
         native_unit_of_measurement=None,
@@ -573,6 +671,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/config",
+        api_key=None,
         name="Lade-Profil",
         device_class=None,
         native_unit_of_measurement=None,
@@ -582,10 +681,12 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/config",
+        api_key="chargemode",
         name="Lademodus",
         device_class=None,
         native_unit_of_measurement=None,
         value_fn=lambda x: _safeJsonGet(x, "chargemode"),
+        api_value_fn=lambda x: x,
         valueMap={
             "standby": "Standby",
             "stop": "Stop",
@@ -598,6 +699,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/soc",
+        api_key="soc",
         name="Ladung",
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
@@ -605,9 +707,11 @@ SENSORS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=True,
         suggested_display_precision=0,
         value_fn=lambda x: _safeJsonGet(x, "soc"),
+        api_value_fn=lambda x: x,
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/soc",
+        api_key="soc_timestamp",
         name="SoC-Datenaktualisierung",
         device_class=SensorDeviceClass.TIMESTAMP,
         native_unit_of_measurement=None,
@@ -615,10 +719,10 @@ SENSORS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=False,
         icon="mdi:clock-time-eight",
         value_fn=lambda x: _extractTimestampFromJson(x, "timestamp"),
-        # Example: "01/02/2024, 15:29:12"
     ),
     openwbSensorEntityDescription(
         key="get/rfid",
+        api_key=None,
         name="Zuletzt gescannter RFID-Tag",
         device_class=None,
         native_unit_of_measurement=None,
@@ -628,6 +732,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/vehicle_id",
+        api_key="vehicle_id",
         name="Vehicle ID",
         device_class=None,
         native_unit_of_measurement=None,
@@ -637,6 +742,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/soc",
+        api_key=None,
         name="Geladene Entfernung",
         device_class=None,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
@@ -646,9 +752,9 @@ SENSORS_PER_CHARGEPOINT = [
         value_fn=lambda x: _safeJsonGet(x, "range_charged"),
         suggested_display_precision=1,
     ),
-    # Dynamic sensor for instant charging current
     openwbDynamicSensorEntityDescription(
         key="instant_charging_current",
+        api_key=None,
         name="Soll-Ladestrom (Sofortladen)",
         device_class=SensorDeviceClass.CURRENT,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
@@ -656,16 +762,14 @@ SENSORS_PER_CHARGEPOINT = [
         icon="mdi:current-ac",
         suggested_display_precision=1,
         entity_registry_enabled_default=True,
-        # This is a template that will be formatted with the charge template ID
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        # Extract the instant charging current from the JSON payload
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "current"
         ),
     ),
-    # Dynamic sensor for PV charging minimum current
     openwbDynamicSensorEntityDescription(
         key="pv_charging_min_current",
+        api_key=None,
         name="Min. Dauerstrom (PV-Laden)",
         device_class=SensorDeviceClass.CURRENT,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
@@ -673,9 +777,7 @@ SENSORS_PER_CHARGEPOINT = [
         icon="mdi:current-ac",
         suggested_display_precision=1,
         entity_registry_enabled_default=True,
-        # This is a template that will be formatted with the charge template ID
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        # Extract the PV charging minimum current from the JSON payload
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "pv_charging", "min_current"
         ),
@@ -707,16 +809,19 @@ SENSORS_PER_CHARGEPOINT = [
 BINARY_SENSORS_PER_CHARGEPOINT = [
     openwbBinarySensorEntityDescription(
         key="plug_state",
+        api_key="plug_state",
         name="Ladekabel",
         device_class=BinarySensorDeviceClass.PLUG,
     ),
     openwbBinarySensorEntityDescription(
         key="charge_state",
+        api_key="charge_state",
         name="Autoladestatus",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
     ),
     openwbBinarySensorEntityDescription(
         key="fault_state",
+        api_key="fault_state",
         name="Fehler",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -724,9 +829,9 @@ BINARY_SENSORS_PER_CHARGEPOINT = [
 ]
 
 SELECTS_PER_CHARGEPOINT = [
-    # Dynamic select for charge mode limitation
     openwbDynamicSelectEntityDescription(
         key="instant_charging_limitation",
+        api_key=None,
         entity_category=EntityCategory.CONFIG,
         name="Begrenzung (Sofortladen)",
         translation_key="selector_chargepoint_dynamic_chargemode",
@@ -735,28 +840,20 @@ SELECTS_PER_CHARGEPOINT = [
             "soc": "EV-SoC",
             "amount": "Energiemenge",
         },
-        valueMapCommand={
-            "Keine": "none",
-            "EV-SoC": "soc",
-            "Energiemenge": "amount",
-        },
+        valueMapCommand={"Keine": "none", "EV-SoC": "soc", "Energiemenge": "amount"},
         mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/selected",
         mqttTopicCurrentValueTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        options=[
-            "Keine",
-            "EV-SoC",
-            "Energiemenge",
-        ],
+        options=["Keine", "EV-SoC", "Energiemenge"],
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "limit", "selected"
         ),
     ),
-    # Static select for charge mode
     openwbSelectEntityDescription(
         key="chargemode",
+        api_key="chargemode",
         entity_category=EntityCategory.CONFIG,
         name="Lademodus",
-        translation_key="selector_chargepoint_chargemode",  # translation is maintained in translations/<lang>.json via this translation_key
+        translation_key="selector_chargepoint_chargemode",
         valueMapCurrentValue={
             "instant_charging": "Instant Charging",
             "scheduled_charging": "Scheduled Charging",
@@ -764,7 +861,8 @@ SELECTS_PER_CHARGEPOINT = [
             "eco_charging": "ECO Charging",
             "standby": "Standby",
             "stop": "Stop",
-            # "time_charging": "Time Charging",
+            "instant": "Instant Charging",
+            "pv": "PV Charging",
         },
         valueMapCommand={
             "Instant Charging": "instant_charging",
@@ -773,7 +871,12 @@ SELECTS_PER_CHARGEPOINT = [
             "ECO Charging": "eco_charging",
             "Standby": "standby",
             "Stop": "stop",
-            # "Time Charging": "time_charging",
+        },
+        api_value_map_command={
+            "Instant Charging": "instant",
+            "PV Charging": "pv",
+            "ECO Charging": "eco",
+            "Stop": "stop",
         },
         mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/selected",
         mqttTopicCurrentValue="get/connected_vehicle/config",
@@ -786,9 +889,11 @@ SELECTS_PER_CHARGEPOINT = [
             "Standby",
         ],
         value_fn=lambda x: _safeJsonGet(x, "chargemode"),
+        api_value_fn=lambda x: x,
     ),
     openwbSelectEntityDescription(
         key="connected_vehicle",
+        api_key=None,
         entity_category=EntityCategory.CONFIG,
         name="Angeschlossenes Fahrzeug",
         translation_key="selector_connected_vehicle",
@@ -854,10 +959,10 @@ SELECTS_PER_CHARGEPOINT = [
 NUMBERS_PER_CHARGEPOINT = [
     openWBNumberEntityDescription(
         key="manual_soc",
+        api_key=None,
         name="Aktueller SoC (Manuelles SoC Modul)",
         native_unit_of_measurement=PERCENTAGE,
         device_class=NumberDeviceClass.BATTERY,
-        # icon="mdi:battery-unknown",
         native_min_value=0.0,
         native_max_value=100.0,
         native_step=1.0,
@@ -868,29 +973,26 @@ NUMBERS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=False,
         value_fn=lambda x: _safeJsonGet(x, "soc"),
     ),
-    # Dynamic number for instant charging current
     openwbDynamicNumberEntityDescription(
         key="instant_charging_current_control",
+        api_key="chargecurrent",
         name="Soll-Ladestrom (Sofortladen)",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=NumberDeviceClass.CURRENT,
         icon="mdi:current-ac",
         native_min_value=6.0,
-        native_max_value=32.0,
+        native_max_value=16.0,
         native_step=1.0,
         entity_category=EntityCategory.CONFIG,
-        # This is a template that will be formatted with the charge template ID for reading the current value
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        # This is a template that will be formatted with the charge template ID for setting the current value
         mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/current",
-        # Extract the instant charging current from the JSON payload
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "current"
         ),
     ),
-    # Dynamic number for PV charging minimum current
     openwbDynamicNumberEntityDescription(
         key="pv_charging_min_current_control",
+        api_key="minimal_permanent_current",
         name="Min. Dauerstrom (PV-Laden)",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=NumberDeviceClass.CURRENT,
@@ -899,31 +1001,24 @@ NUMBERS_PER_CHARGEPOINT = [
         native_max_value=16.0,
         native_step=1.0,
         entity_category=EntityCategory.CONFIG,
-        # This is a template that will be formatted with the charge template ID for reading the current value
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        # This is a template that will be formatted with the charge template ID for setting the current value
         mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/pv_charging/min_current",
-        # Extract the PV charging minimum current from the JSON payload
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "pv_charging", "min_current"
         ),
     ),
-    # Dynamic number for instant charging energy limit
     openwbDynamicNumberEntityDescription(
         key="instant_charging_energy_limit_control",
+        api_key=None,
         name="Energie-Limit (Sofortladen)",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=NumberDeviceClass.ENERGY,
-        # icon="mdi:current-ac",
         native_min_value=1,
         native_max_value=80,
         native_step=1,
         entity_category=EntityCategory.CONFIG,
-        # This is a template that will be formatted with the charge template ID for reading the current value
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        # This is a template that will be formatted with the charge template ID for setting the current value
         mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/amount",
-        # Extract the current value from the JSON payload and convert from Wh to kWh
         convert_before_publish_fn=lambda x: x * 1000.0,
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "limit", "amount"
@@ -933,23 +1028,18 @@ NUMBERS_PER_CHARGEPOINT = [
         is not None
         else None,
     ),
-    # Dynamic number for instant charging soc limit
     openwbDynamicNumberEntityDescription(
         key="instant_charging_soc_limit_control",
+        api_key=None,
         name="SoC-Limit (Sofortladen)",
         native_unit_of_measurement=PERCENTAGE,
         device_class=NumberDeviceClass.BATTERY,
-        # icon="mdi:current-ac",
         native_min_value=5,
         native_max_value=100,
         native_step=5,
         entity_category=EntityCategory.CONFIG,
-        # This is a template that will be formatted with the charge template ID for reading the current value
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        # This is a template that will be formatted with the charge template ID for setting the current value
         mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/soc",
-        ## Extract the current value from the JSON payload and convert from Wh to kWh
-        # convert_before_publish_fn=lambda x: x * 1000.0,
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "limit", "soc"
         )
@@ -957,30 +1047,30 @@ NUMBERS_PER_CHARGEPOINT = [
         is not None
         else None,
     ),
-    # openWBNumberEntityDescription(
-    #     key="pv_charging_min_current",
-    #     name="Ladestromvorgabe (PV Laden)",
-    #     native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
-    #     device_class=SensorDeviceClass.CURRENT,
-    #     icon="mdi:current-ac",
-    #     native_min_value=0,
-    #     native_max_value=16,
-    #     native_step=1,
-    #     entity_category=EntityCategory.CONFIG,
-    #     mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/pv_charging/min_current",
-    #     mqttTopicCurrentValue="vehicle/template/charge_template/_ChargeTemplateID_",
-    #     mqttTopicChargeMode=None,
-    #     # entity_registry_enabled_default=False,
-    #     value_fn=lambda x: json.loads(x)
-    #     .get("chargemode")
-    #     .get("pv_charging")
-    #     .get("min_current"),
-    # ),
+    openwbDynamicNumberEntityDescription(
+        key="price_based_charging_max_price",
+        api_key=None,
+        name="Max. Preis (Strompreisbasiertes Laden)",
+        native_unit_of_measurement="ct/kWh",
+        device_class=None,
+        icon="mdi:currency-eur",
+        native_min_value=0.0,
+        native_max_value=1000.0,
+        native_step=0.1,
+        entity_category=EntityCategory.CONFIG,
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
+        value_fn=lambda x: _safeNestedGet(x, "et", "max_price") * 100000
+        if _safeNestedGet(x, "et", "max_price") is not None
+        else None,
+        convert_before_publish_fn=lambda x: x / 100000.0,
+    ),
 ]
 
 SENSORS_PER_COUNTER = [
     openwbSensorEntityDescription(
         key="voltages",
+        api_key="voltages",
         name="Spannung (L1)",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -990,6 +1080,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="voltages",
+        api_key="voltages",
         name="Spannung (L2)",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -999,6 +1090,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="voltages",
+        api_key="voltages",
         name="Spannung (L3)",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1008,6 +1100,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="power_factors",
+        api_key="power_factors",
         name="Leistungsfaktor (L1)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1018,6 +1111,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="power_factors",
+        api_key="power_factors",
         name="Leistungsfaktor (L2)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1028,6 +1122,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="power_factors",
+        api_key="power_factors",
         name="Leistungsfaktor (L3)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1038,6 +1133,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="powers",
+        api_key="powers",
         name="Leistung (L1)",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1047,6 +1143,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="powers",
+        api_key="powers",
         name="Leistung (L2)",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1056,6 +1153,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="powers",
+        api_key="powers",
         name="Leistung (L3)",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1065,6 +1163,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="frequency",
+        api_key="frequency",
         name="Frequenz",
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1073,6 +1172,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="currents",
+        api_key="currents",
         name="Strom (L1)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1082,6 +1182,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="currents",
+        api_key="currents",
         name="Strom (L2)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1091,6 +1192,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="currents",
+        api_key="currents",
         name="Strom (L3)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1100,6 +1202,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="power",
+        api_key="power",
         name="Leistung",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1109,6 +1212,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="fault_str",
+        api_key="fault_str",
         name="Fehlerbeschreibung",
         device_class=None,
         native_unit_of_measurement=None,
@@ -1117,6 +1221,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="exported",
+        api_key="exported",
         name="Exportierte Energie (Gesamt)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1129,6 +1234,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="imported",
+        api_key="imported",
         name="Importierte Energie (Gesamt)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1141,6 +1247,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="daily_imported",
+        api_key="daily_imported",
         name="Importierte Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1153,6 +1260,7 @@ SENSORS_PER_COUNTER = [
     ),
     openwbSensorEntityDescription(
         key="daily_exported",
+        api_key="daily_exported",
         name="Exportierte Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1168,6 +1276,7 @@ SENSORS_PER_COUNTER = [
 BINARY_SENSORS_PER_COUNTER = [
     openwbBinarySensorEntityDescription(
         key="fault_state",
+        api_key="fault_state",
         name="Fehler",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -1177,6 +1286,7 @@ BINARY_SENSORS_PER_COUNTER = [
 SENSORS_PER_BATTERY = [
     openwbSensorEntityDescription(
         key="soc",
+        api_key="soc",
         name="Ladung",
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
@@ -1186,6 +1296,7 @@ SENSORS_PER_BATTERY = [
     ),
     openwbSensorEntityDescription(
         key="power",
+        api_key="power",
         name="Leistung",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1195,6 +1306,7 @@ SENSORS_PER_BATTERY = [
     ),
     openwbSensorEntityDescription(
         key="fault_str",
+        api_key="fault_str",
         name="Fehlerbeschreibung",
         device_class=None,
         native_unit_of_measurement=None,
@@ -1203,6 +1315,7 @@ SENSORS_PER_BATTERY = [
     ),
     openwbSensorEntityDescription(
         key="exported",
+        api_key="exported",
         name="Entladene Energie (Gesamt)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1215,6 +1328,7 @@ SENSORS_PER_BATTERY = [
     ),
     openwbSensorEntityDescription(
         key="imported",
+        api_key="imported",
         name="Geladene Energie (Gesamt)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1227,6 +1341,7 @@ SENSORS_PER_BATTERY = [
     ),
     openwbSensorEntityDescription(
         key="daily_imported",
+        api_key="daily_imported",
         name="Geladene Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1239,6 +1354,7 @@ SENSORS_PER_BATTERY = [
     ),
     openwbSensorEntityDescription(
         key="daily_exported",
+        api_key="daily_exported",
         name="Entladene Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1254,6 +1370,7 @@ SENSORS_PER_BATTERY = [
 BINARY_SENSORS_PER_BATTERY = [
     openwbBinarySensorEntityDescription(
         key="fault_state",
+        api_key="fault_state",
         name="Fehler",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -1263,6 +1380,7 @@ BINARY_SENSORS_PER_BATTERY = [
 SENSORS_PER_PVGENERATOR = [
     openwbSensorEntityDescription(
         key="daily_exported",
+        api_key="daily_exported",
         name="Zählerstand (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1275,6 +1393,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="monthly_exported",
+        api_key="monthly_exported",
         name="Zählerstand (Monat)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1287,6 +1406,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="yearly_exported",
+        api_key="yearly_exported",
         name="Zählerstand (Jahr)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1299,6 +1419,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="exported",
+        api_key="exported",
         name="Zählerstand (Gesamt)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1311,6 +1432,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="power",
+        api_key="power",
         name="Leistung",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1322,6 +1444,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="currents",
+        api_key="currents",
         name="Strom (L1)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1331,6 +1454,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="currents",
+        api_key="currents",
         name="Strom (L2)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1340,6 +1464,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="currents",
+        api_key="currents",
         name="Strom (L3)",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -1349,6 +1474,7 @@ SENSORS_PER_PVGENERATOR = [
     ),
     openwbSensorEntityDescription(
         key="fault_str",
+        api_key="fault_str",
         name="Fehlerbeschreibung",
         device_class=None,
         native_unit_of_measurement=None,
@@ -1360,6 +1486,7 @@ SENSORS_PER_PVGENERATOR = [
 BINARY_SENSORS_PER_PVGENERATOR = [
     openwbBinarySensorEntityDescription(
         key="fault_state",
+        api_key="fault_state",
         name="Fehler",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -1393,9 +1520,6 @@ SENSORS_CONTROLLER = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:clock-time-eight",
-        # value_fn=lambda x: datetime.datetime.fromtimestamp(
-        #    int(json.loads(x).get("timestamp")), tz=ZoneInfo("UTC")
-        # ),
         value_fn=lambda x: _extractTimestampFromJson(x, "timestamp"),
     ),
     openwbSensorEntityDescription(
@@ -1406,9 +1530,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:transmission-tower",
-        value_fn=lambda x: _splitJsonLastLiveValues(
-            x, "grid", 1000
-        ),  # Already handles None and json.JSONDecodeError
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "grid", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1418,9 +1540,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:home-lightning-bolt",
-        value_fn=lambda x: _splitJsonLastLiveValues(
-            x, "house-power", 1000
-        ),  # Already handles None and json.JSONDecodeError
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "house-power", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1430,9 +1550,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:solar-power",
-        value_fn=lambda x: _splitJsonLastLiveValues(
-            x, "pv-all", 1000
-        ),  # Already handles None and json.JSONDecodeError
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "pv-all", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1442,9 +1560,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:car-electric-outline",
-        value_fn=lambda x: _splitJsonLastLiveValues(
-            x, "charging-all", 1000
-        ),  # Already handles None and json.JSONDecodeError
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "charging-all", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1454,9 +1570,7 @@ SENSORS_CONTROLLER = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         icon="mdi:battery-charging",
-        value_fn=lambda x: _splitJsonLastLiveValues(
-            x, "bat-all-power", 1000
-        ),  # Already handles None and json.JSONDecodeError
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-power", 1000),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
@@ -1465,9 +1579,7 @@ SENSORS_CONTROLLER = [
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
-        value_fn=lambda x: _splitJsonLastLiveValues(
-            x, "bat-all-soc", 1
-        ),  # Already handles None and json.JSONDecodeError
+        value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-soc", 1),
     ),
 ]
 
@@ -1478,7 +1590,6 @@ SENSORS_PER_VEHICLE = [
         name="Bezeichnung",
         device_class=None,
         native_unit_of_measurement=None,
-        # state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=True,
         value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
         icon="mdi:car",
@@ -1500,7 +1611,6 @@ SENSORS_PER_VEHICLE = [
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:map-marker-distance",
         entity_registry_enabled_default=True,
-        # value_fn=lambda x: json.loads(x).get("range_charged"),
         suggested_display_precision=0,
     ),
     openwbSensorEntityDescription(
@@ -1510,7 +1620,6 @@ SENSORS_PER_VEHICLE = [
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:clock-time-eight",
-        # value_fn=lambda x: _extractTimestamp(x),
         value_fn=_extractTimestamp,
     ),
     openwbSensorEntityDescription(
