@@ -8,8 +8,6 @@ import socket
 
 import aiohttp
 
-# import async_timeout
-
 _LOGGER = logging.getLogger(__name__)
 
 
