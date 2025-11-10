@@ -59,7 +59,7 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
             user_input,
             "details_api",
             DATA_SCHEMA_API,
-            {"api_url": "http://192.168.0.68/simpleAPI/web/simpleapi.php"},
+            {"api_url": "http://192.168.0.68/openWB/simpleAPI/simpleapi.php"},
         )
 
     async def async_step_details_mqtt(self, user_input=None):
