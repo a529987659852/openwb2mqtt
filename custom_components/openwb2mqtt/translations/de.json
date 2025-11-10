@@ -92,6 +92,15 @@
                     "Vehicle 10" : "Fahrzeug 10"
                 }
             }
-        }
+        },
+		"lock": {
+            "manual_lock": {
+				"name": "Manuelle Sperre",
+                "state": {
+                    "locked": "Gesperrt",
+                    "unlocked": "Entsperrt"
+                }
+            }
+		}
     }
 }

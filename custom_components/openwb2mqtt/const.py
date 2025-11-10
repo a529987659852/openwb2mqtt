@@ -22,6 +22,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.components.switch import SwitchEntityDescription
+from homeassistant.components.lock import LockEntityDescription
+
 from homeassistant.const import (
     PERCENTAGE,
     Platform,
@@ -46,6 +48,7 @@ PLATFORMS = [
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
+    Platform.LOCK,
     # Platform.SWITCH,
 ]
 
@@ -390,6 +393,18 @@ class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
 
     # This will be used to store the base topic pattern that will be formatted with the charge template ID
     mqttTopicTemplate: str | None = None
+
+
+@dataclass
+class openwbLockEntityDescription(LockEntityDescription):
+    """A class that describes lock entities."""
+
+    mqttTopicCommand: str | None = None
+    mqttTopicCurrentValue: str | None = None
+    payload_lock: str = "true"
+    payload_unlock: str = "false"
+    state_locked: str = "true"
+    state_unlocked: str = "false"
 
 
 SENSORS_PER_CHARGEPOINT = [
@@ -766,6 +781,28 @@ SENSORS_PER_CHARGEPOINT = [
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "pv_charging", "min_current"
         ),
+    ),
+    # Dynamic number for price-based charging maximum price
+    openwbDynamicSensorEntityDescription(
+        key="price_based_charging_max_price",
+        name="Max. Preis (Strompreisbasiertes Laden)",
+        native_unit_of_measurement="ct/kWh",
+        device_class=None,
+        icon="mdi:currency-eur",
+        # native_min_value=0.0,
+        # native_max_value=1000.0,
+        # native_step=0.1,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        # mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
+        # Extract the current value from the JSON payload
+        value_fn=lambda x: _safeNestedGet(x, "chargemode", "eco_charging", "max_price")
+        * 100000
+        if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
+        else None,
+        # convert_before_publish_fn=lambda x: x / 100000.0,
     ),
 ]
 
@@ -1601,6 +1638,20 @@ BINARY_SENSORS_PER_VEHICLE = [
         name="Fehler",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+]
+
+# Lock-entities per chargepoint
+LOCKS_PER_CHARGEPOINT = [
+    openwbLockEntityDescription(
+        key="manual_lock",
+        name="Manuelle Sperre",
+        entity_category=EntityCategory.CONFIG,
+        translation_key="manual_lock",
+        # openWB Topic-Struktur: openWB/chargepoint/2/set/manual_lock
+        mqttTopicCommand="set/manual_lock",
+        # Laut Ihrer Beschreibung wird der State über dasselbe Topic gelesen
+        mqttTopicCurrentValue="set/manual_lock",
     ),
 ]
 
