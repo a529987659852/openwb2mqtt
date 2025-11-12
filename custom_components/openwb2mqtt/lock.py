@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity, async_setup_locks
+from .common import OpenWBBaseEntity
 from .const import (
     COMM_METHOD_HTTP,
     COMMUNICATION_METHOD,
@@ -22,6 +22,7 @@ from .const import (
     DOMAIN,
     LOCKS_PER_CHARGEPOINT,
     MANUFACTURER,
+    MQTT_ROOT_TOPIC,
     openwbLockEntityDescription,
 )
 from .coordinator import OpenWB2MqttDataUpdateCoordinator
@@ -54,41 +55,41 @@ async def async_setup_entry(
                 )
         async_add_entities(entities)
     else:  # MQTT
+        integration_unique_id = config.unique_id
+        if not integration_unique_id:
+            _LOGGER.error("Integration unique ID is not set")
+            return
+        mqtt_root = config.data[MQTT_ROOT_TOPIC]
+        device_id = config.data[DEVICEID]
+        device_type_name = "Chargepoint"
+
         if device_type == "chargepoint":
-
-            def process_chargepoint_locks(
-                description, device_type, device_id, mqtt_root
-            ):
-                """Process chargepoint-specific lock setup."""
-                if "_chargePointID_" in description.mqttTopicCommand:
-                    description.mqttTopicCommand = description.mqttTopicCommand.replace(
-                        "_chargePointID_", str(device_id)
-                    )
-                if "_chargePointID_" in description.mqttTopicCurrentValue:
-                    description.mqttTopicCurrentValue = (
-                        description.mqttTopicCurrentValue.replace(
-                            "_chargePointID_", str(device_id)
-                        )
-                    )
-
-                description.mqttTopicCommand = (
-                    f"{mqtt_root}/{description.mqttTopicCommand}"
-                )
-                description.mqttTopicCurrentValue = (
+            for description in descriptions_copy:
+                command_topic = f"{mqtt_root}/{description.mqttTopicCommand}"
+                current_value_topic = (
                     f"{mqtt_root}/chargepoint/{description.mqttTopicCurrentValue}"
                 )
-
-                _LOGGER.debug("Lock Topic: %s", description.mqttTopicCurrentValue)
-
-            await async_setup_locks(
-                hass,
-                config,
-                async_add_entities,
-                descriptions_copy,
-                "{mqtt_root}/{device_type}/{device_id}/{key}",
-                "Chargepoint",
-                process_chargepoint_locks,
-            )
+                if "_chargePointID_" in command_topic:
+                    command_topic = command_topic.replace(
+                        "_chargePointID_", str(device_id)
+                    )
+                if "_chargePointID_" in current_value_topic:
+                    current_value_topic = current_value_topic.replace(
+                        "_chargePointID_", str(device_id)
+                    )
+                _LOGGER.debug("Lock Topic: %s", current_value_topic)
+                entities.append(
+                    OpenWbMqttLock(
+                        uniqueID=integration_unique_id,
+                        description=description,
+                        device_friendly_name=f"{device_type_name} {device_id}",
+                        mqtt_root=mqtt_root,
+                        deviceID=device_id,
+                        state_topic=current_value_topic,
+                        command_topic=command_topic,
+                    )
+                )
+        async_add_entities(entities)
 
 
 class OpenWbMqttLock(OpenWBBaseEntity, LockEntity):
@@ -102,8 +103,8 @@ class OpenWbMqttLock(OpenWBBaseEntity, LockEntity):
         description: openwbLockEntityDescription,
         device_friendly_name: str,
         mqtt_root: str,
-        state_topic: str,
-        command_topic: str,
+        state_topic: str | None,
+        command_topic: str | None,
         deviceID: int | None = None,
     ) -> None:
         """Initialize the lock entity."""
@@ -139,7 +140,7 @@ class OpenWbMqttLock(OpenWBBaseEntity, LockEntity):
             self.async_write_ha_state()
 
         if self._state_topic:
-            self._unsubscribe_state = await mqtt.async_subscribe(
+            await mqtt.async_subscribe(
                 self.hass, self._state_topic, message_received, 1
             )
             _LOGGER.debug("Subscribed to lock state MQTT topic: %s", self._state_topic)

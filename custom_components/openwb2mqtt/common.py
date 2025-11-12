@@ -194,51 +194,6 @@ async def async_setup_selects(
     async_add_entities(entities)
 
 
-async def async_setup_locks(
-    hass: HomeAssistant,
-    config: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-    lock_descriptions: list[Any],
-    topic_template: str,
-    device_type_name: str = None,
-    additional_processing: Callable[[Any, str, int, str], None] = None,
-) -> None:
-    """Set up lock entities."""
-    from .lock import OpenWbMqttLock  # noqa: PLC0415
-
-    integration_unique_id = config.unique_id
-    mqtt_root = config.data[MQTT_ROOT_TOPIC]
-    device_type = config.data[DEVICETYPE]
-    device_id = config.data[DEVICEID]
-
-    # Use provided device type name or capitalize the device type
-    if device_type_name is None:
-        device_type_name = device_type.capitalize()
-
-    entities = []
-    descriptions_copy = copy.deepcopy(lock_descriptions)
-
-    for description in descriptions_copy:
-        # Call additional processing if provided
-        if additional_processing:
-            additional_processing(description, device_type, device_id, mqtt_root)
-
-        # Create the entity
-        entities.append(
-            OpenWbMqttLock(
-                uniqueID=integration_unique_id,
-                description=description,
-                device_friendly_name=f"{device_type_name} {device_id}",
-                mqtt_root=mqtt_root,
-                deviceID=device_id,
-                state_topic=description.mqttTopicCurrentValue,
-                command_topic=description.mqttTopicCommand,
-            )
-        )
-
-    async_add_entities(entities)
-
-
 async def async_setup_numbers(
     hass: HomeAssistant,
     config: ConfigEntry,
