@@ -719,6 +719,7 @@ SENSORS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=False,
         icon="mdi:clock-time-eight",
         value_fn=lambda x: _extractTimestampFromJson(x, "timestamp"),
+        api_value_fn=lambda x: _extractTimestamp(x) if x not in {"null"} else None,
     ),
     openwbSensorEntityDescription(
         key="get/rfid",
