@@ -58,7 +58,7 @@ COMMUNICATION_METHOD = "communication_method"
 COMM_METHOD_MQTT = "MQTT"
 COMM_METHOD_HTTP = "HTTP API"
 API_URL = "api_url"
-API_TOKEN = "api_token"
+API_TOKEN = "api_token - leave empty for now"
 CONF_WALLBOX_POWER = "wallbox_power"
 MQTT_ROOT_TOPIC = "mqttroot"
 MQTT_ROOT_TOPIC_DEFAULT = "openWB"
@@ -347,7 +347,7 @@ class openwbSelectEntityDescription(SelectEntityDescription):
     api_key: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbDynamicSelectEntityDescription(openwbSelectEntityDescription):
     """Enhance the select entity description for openWB with dynamic MQTT topic support."""
 
@@ -356,7 +356,7 @@ class openwbDynamicSelectEntityDescription(openwbSelectEntityDescription):
     mqttTopicCommandTemplate: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbSwitchEntityDescription(SwitchEntityDescription):
     """Enhance the select entity description for openWB."""
 
@@ -365,7 +365,7 @@ class openwbSwitchEntityDescription(SwitchEntityDescription):
     mqttTopicChargeMode: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openWBNumberEntityDescription(NumberEntityDescription):
     """Enhance the number entity description for openWB."""
 
@@ -376,7 +376,7 @@ class openWBNumberEntityDescription(NumberEntityDescription):
     api_key: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbDynamicNumberEntityDescription(openWBNumberEntityDescription):
     """Enhance the number entity description for openWB with dynamic MQTT topic support."""
 
@@ -387,7 +387,7 @@ class openwbDynamicNumberEntityDescription(openWBNumberEntityDescription):
 
 
 # Define a special sensor type for dynamic MQTT topic subscription
-@dataclass
+@dataclass(frozen=False)
 class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
     """Enhance the sensor entity description for openWB with dynamic MQTT topic support."""
 
@@ -395,7 +395,7 @@ class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
     mqttTopicTemplate: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbLockEntityDescription(LockEntityDescription):
     """A class that describes lock entities."""
 
@@ -405,6 +405,9 @@ class openwbLockEntityDescription(LockEntityDescription):
     payload_unlock: str = "false"
     state_locked: str = "true"
     state_unlocked: str = "false"
+    api_key: str | None = None
+    api_key_command: str | None = None
+    api_value_map_command: dict | None = None
 
 
 SENSORS_PER_CHARGEPOINT = [
@@ -445,9 +448,7 @@ SENSORS_PER_CHARGEPOINT = [
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
-        if _safeFloat(x) is not None
-        else None,
+        value_fn=lambda x: round(float(_safeFloat(x) or 0) / 1000.0, 3),
         icon="mdi:counter",
     ),
     openwbSensorEntityDescription(
@@ -666,7 +667,7 @@ SENSORS_PER_CHARGEPOINT = [
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
         value_fn=lambda x: _safeStringOp(
-            _safeJsonGet(x, "name"), lambda s: s.replace('"', "")
+            str(_safeJsonGet(x, "name")), lambda s: s.replace('"', "")
         ),
     ),
     openwbSensorEntityDescription(
@@ -938,7 +939,7 @@ SELECTS_PER_CHARGEPOINT = [
         ],
         mqttTopicCommand="set/chargepoint/_chargePointID_/config/ev",
         mqttTopicCurrentValue="get/connected_vehicle/info",
-        mqttTopicOptions=(
+        mqttTopicOptions=[
             "vehicle/0/name",
             "vehicle/1/name",
             "vehicle/2/name",
@@ -950,7 +951,7 @@ SELECTS_PER_CHARGEPOINT = [
             "vehicle/8/name",
             "vehicle/9/name",
             "vehicle/10/name",
-        ),
+        ],
         value_fn=lambda x: _safeJsonGet(x, "id"),
         entity_registry_enabled_default=False,
     ),
@@ -1645,13 +1646,15 @@ BINARY_SENSORS_PER_VEHICLE = [
 LOCKS_PER_CHARGEPOINT = [
     openwbLockEntityDescription(
         key="manual_lock",
+        api_key="manual_lock",
         name="Manuelle Sperre",
         entity_category=EntityCategory.CONFIG,
         translation_key="manual_lock",
-        # openWB Topic-Struktur: openWB/chargepoint/2/set/manual_lock
-        mqttTopicCommand="set/manual_lock",
-        # Laut Ihrer Beschreibung wird der State über dasselbe Topic gelesen
-        mqttTopicCurrentValue="set/manual_lock",
+        # openWB Topic-Struktur: openWB/set/chargepoint/4/set/manual_lock
+        mqttTopicCommand="set/chargepoint/_chargePointID_/set/manual_lock",
+        mqttTopicCurrentValue="_chargePointID_/set/manual_lock",
+        api_key_command="chargepoint_lock",
+        api_value_map_command={"lock": "1", "unlock": "0"},
     ),
 ]
 
