@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import copy
 import logging
-from typing import Any, Callable, List, Type, TypeVar
+from typing import Any, TypeVar
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -48,8 +49,8 @@ async def async_setup_entities(
     hass: HomeAssistant,
     config: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    entity_descriptions: List[Any],
-    entity_class: Type[T],
+    entity_descriptions: list[Any],
+    entity_class: type[T],
     topic_template: str,
     device_type_name: str = None,
     additional_processing: Callable[[Any, str, int, str], None] = None,
@@ -108,13 +109,13 @@ async def async_setup_sensors(
     hass: HomeAssistant,
     config: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    sensor_descriptions: List[Any],
+    sensor_descriptions: list[Any],
     topic_template: str,
     device_type_name: str = None,
     additional_processing: Callable[[Any, str, int, str], None] = None,
 ) -> None:
     """Set up sensor entities."""
-    from .sensor import openwbSensor
+    from .sensor import openwbSensor  # noqa: PLC0415
 
     await async_setup_entities(
         hass,
@@ -132,12 +133,12 @@ async def async_setup_binary_sensors(
     hass: HomeAssistant,
     config: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    binary_sensor_descriptions: List[Any],
+    binary_sensor_descriptions: list[Any],
     topic_template: str,
     device_type_name: str = None,
 ) -> None:
     """Set up binary sensor entities."""
-    from .binary_sensor import openwbBinarySensor
+    from .binary_sensor import openwbBinarySensor  # noqa: PLC0415
 
     await async_setup_entities(
         hass,
@@ -154,13 +155,13 @@ async def async_setup_selects(
     hass: HomeAssistant,
     config: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    select_descriptions: List[Any],
+    select_descriptions: list[Any],
     topic_template: str,
     device_type_name: str = None,
     additional_processing: Callable[[Any, str, int, str], None] = None,
 ) -> None:
     """Set up select entities."""
-    from .select import openwbSelect
+    from .select import openwbSelect  # noqa: PLC0415
 
     integration_unique_id = config.unique_id
     mqtt_root = config.data[MQTT_ROOT_TOPIC]
@@ -197,13 +198,13 @@ async def async_setup_locks(
     hass: HomeAssistant,
     config: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    lock_descriptions: List[Any],
+    lock_descriptions: list[Any],
     topic_template: str,
     device_type_name: str = None,
     additional_processing: Callable[[Any, str, int, str], None] = None,
 ) -> None:
     """Set up lock entities."""
-    from .lock import OpenWbMqttLock
+    from .lock import OpenWbMqttLock  # noqa: PLC0415
 
     integration_unique_id = config.unique_id
     mqtt_root = config.data[MQTT_ROOT_TOPIC]
@@ -242,13 +243,13 @@ async def async_setup_numbers(
     hass: HomeAssistant,
     config: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    number_descriptions: List[Any],
+    number_descriptions: list[Any],
     topic_template: str,
     device_type_name: str = None,
     additional_processing: Callable[[Any, str, int, str], None] = None,
 ) -> None:
     """Set up number entities."""
-    from .number import openWBNumber
+    from .number import openWBNumber  # noqa: PLC0415
 
     integration_unique_id = config.unique_id
     mqtt_root = config.data[MQTT_ROOT_TOPIC]

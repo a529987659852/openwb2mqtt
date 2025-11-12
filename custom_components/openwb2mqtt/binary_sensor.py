@@ -163,9 +163,9 @@ class OpenWB2MqttApiBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
         if isinstance(value, str):
             value = value.strip().lower()
-            if value == "true" or value == "on":
+            if value in {"true", "on"}:
                 return True
-            if value == "false" or value == "off":
+            if value in {"false", "off"}:
                 return False
 
         try:
@@ -226,9 +226,9 @@ class openwbBinarySensor(OpenWBBaseEntity, BinarySensorEntity):
                 try:
                     self._attr_is_on = bool(int(payload))
                 except ValueError:
-                    if payload == "true" or payload == "on":
+                    if payload in {"true", "on"}:
                         self._attr_is_on = True
-                    elif payload == "false" or payload == "off":
+                    elif payload in {"false", "off"}:
                         self._attr_is_on = False
                     else:
                         self._attr_is_on = None

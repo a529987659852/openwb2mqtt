@@ -14,6 +14,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription,
 )
+from homeassistant.components.lock import LockEntityDescription
 from homeassistant.components.number import NumberDeviceClass, NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import (
@@ -22,8 +23,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.components.switch import SwitchEntityDescription
-from homeassistant.components.lock import LockEntityDescription
-
 from homeassistant.const import (
     PERCENTAGE,
     Platform,
@@ -43,13 +42,13 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
+# Platform.SWITCH,
 PLATFORMS = [
     Platform.BINARY_SENSOR,
+    Platform.LOCK,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
-    Platform.LOCK,
-    # Platform.SWITCH,
 ]
 
 # Global values
