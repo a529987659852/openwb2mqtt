@@ -1060,10 +1060,11 @@ NUMBERS_PER_CHARGEPOINT = [
         entity_category=EntityCategory.CONFIG,
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
         mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
-        value_fn=lambda x: _safeNestedGet(x, "et", "max_price") * 100000
-        if _safeNestedGet(x, "et", "max_price") is not None
+        value_fn=lambda x: _safeNestedGet(x, "chargemode", "eco_charging", "max_price")
+        * 100000
+        if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
         else None,
-        convert_before_publish_fn=lambda x: x / 100000.0,
+        # convert_before_publish_fn=lambda x: x / 100000.0,
     ),
 ]
 
