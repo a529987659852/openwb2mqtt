@@ -22,7 +22,6 @@ from .const import (
     DOMAIN,
     LOCKS_PER_CHARGEPOINT,
     MANUFACTURER,
-    MQTT_ROOT_TOPIC,
     openwbLockEntityDescription,
 )
 from .coordinator import OpenWB2MqttDataUpdateCoordinator
@@ -111,8 +110,8 @@ class OpenWbMqttLock(OpenWBBaseEntity, LockEntity):
         super().__init__(device_friendly_name=device_friendly_name, mqtt_root=mqtt_root)
 
         self.entity_description = description
-        self._attr_unique_id = slugify(f"{uniqueID}-{self.description.name}")
-        self.entity_id = f"{LOCK_DOMAIN}.{uniqueID}-{self.description.name}"
+        self._attr_unique_id = slugify(f"{uniqueID}-{self.entity_description.name}")
+        self.entity_id = f"{LOCK_DOMAIN}.{uniqueID}-{self.entity_description.name}"
 
         self._attr_is_locked = None
         self._state_topic = state_topic
