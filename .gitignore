@@ -3,3 +3,4 @@
 .gitignore
 .DS_Store
 *.xlsx
+custom_components/openwb2mqtt/api_spec.txt

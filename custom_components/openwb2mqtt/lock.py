@@ -202,24 +202,45 @@ class OpenWbApiLock(CoordinatorEntity[OpenWB2MqttDataUpdateCoordinator], LockEnt
 
     async def async_lock(self, **kwargs) -> None:
         """Lock the device via API."""
-        if (
-            self.entity_description.api_key_command
-            and self.entity_description.api_value_map_command
-        ):
-            value = self.entity_description.api_value_map_command["lock"]
-            await self.coordinator.client.async_get_data(
-                f"?{self.entity_description.api_key_command}={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
-            )
-            await self.coordinator.async_request_refresh()
+        await self._async_set_lock_state("lock")
 
     async def async_unlock(self, **kwargs) -> None:
         """Unlock the device via API."""
+        await self._async_set_lock_state("unlock")
+
+    async def _async_set_lock_state(self, state: str) -> None:
+        """Set the lock state via API."""
+        command_key = self.entity_description.api_key_command
+        state_key = self.entity_description.api_key
+
         if (
-            self.entity_description.api_key_command
-            and self.entity_description.api_value_map_command
+            not command_key
+            or not state_key
+            or not self.entity_description.api_value_map_command
         ):
-            value = self.entity_description.api_value_map_command["unlock"]
-            await self.coordinator.client.async_get_data(
-                f"?{self.entity_description.api_key_command}={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
-            )
-            await self.coordinator.async_request_refresh()
+            return
+
+        value = self.entity_description.api_value_map_command.get(state)
+        if value is None:
+            return
+
+        payload = (
+            f"{command_key}={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
+        )
+
+        response = await self.coordinator.client.async_set_data(payload)
+        if (
+            response
+            and response.get("success")
+            and "data" in response
+            and command_key in response["data"]
+        ):
+            new_data = self.coordinator.data.copy()
+            # API returns "1" or "0", convert to boolean for the state
+            new_value = response["data"][command_key] == "1"
+            new_data[state_key] = new_value
+            self.coordinator.async_set_updated_data(new_data)
+            return
+
+        # Fallback to refresh if optimistic update fails
+        await self.coordinator.async_request_refresh()

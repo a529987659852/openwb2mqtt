@@ -74,7 +74,8 @@
                     "Scheduled Charging": "Zielladen",
                     "PV Charging": "PV-Laden",
                     "Stop": "Stop",
-                    "Standby": "Standby"
+                    "Standby": "Standby",
+                    "ECO Charging": "Eco"
                 }
             },
             "selector_connected_vehicle": {
