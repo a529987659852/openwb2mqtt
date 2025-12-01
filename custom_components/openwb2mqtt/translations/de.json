@@ -71,7 +71,7 @@
             "selector_chargepoint_chargemode": {
                 "state": {
                     "Instant Charging": "Sofortladen",
-                    "Scheduled Charging": "Zielladen",
+                    "Target Charging": "Zielladen",
                     "PV Charging": "PV-Laden",
                     "Stop": "Stop",
                     "Standby": "Standby",

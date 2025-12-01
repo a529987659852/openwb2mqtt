@@ -149,9 +149,7 @@ class OpenWB2MqttApiNumber(CoordinatorEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
-        command_key = (
-            self.entity_description.api_key_command or self.entity_description.api_key
-        )
+        command_key = self.entity_description.api_key_command
         state_key = self.entity_description.api_key
         chargepoint_nr = self.config_entry.data[DEVICEID]
 
