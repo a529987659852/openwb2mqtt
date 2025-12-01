@@ -915,7 +915,7 @@ SELECTS_PER_CHARGEPOINT = [
     ),
     openwbSelectEntityDescription(
         key="connected_vehicle",
-        api_key="vehicle_id",
+        api_key=None,
         api_key_command="vehicle",
         api_value_map_command={
             "Vehicle 0": "0",
