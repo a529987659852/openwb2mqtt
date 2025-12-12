@@ -64,6 +64,9 @@ MQTT_ROOT_TOPIC_DEFAULT = "openWB"
 API_PREFIX = "api_prefix"
 DEVICETYPE = "DEVICETYPE"
 DEVICEID = "DEVICEID"
+CONF_VEHICLES = "vehicles"
+CONF_VEHICLE_NAME = "vehicle_name"
+CONF_VEHICLE_ID = "vehicle_id"
 MANUFACTURER = "openWB"
 MODEL = "openWB"
 
@@ -75,15 +78,6 @@ DATA_SCHEMA = vol.Schema(
                 options=[
                     SelectOptionDict(value=COMM_METHOD_MQTT, label="MQTT"),
                     SelectOptionDict(value=COMM_METHOD_HTTP, label="HTTP API"),
-                ],
-                mode=SelectSelectorMode.DROPDOWN,
-            )
-        ),
-        vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    SelectOptionDict(value="11", label="11 kW"),
-                    SelectOptionDict(value="22", label="22 kW"),
                 ],
                 mode=SelectSelectorMode.DROPDOWN,
             )
@@ -136,7 +130,7 @@ DATA_SCHEMA_API = vol.Schema(
     }
 )
 
-DATA_SCHEMA_OPTIONS = vol.Schema(
+DATA_SCHEMA_OPTIONS_CP = vol.Schema(
     {
         vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
             SelectSelectorConfig(
@@ -146,7 +140,11 @@ DATA_SCHEMA_OPTIONS = vol.Schema(
                 ],
                 mode=SelectSelectorMode.DROPDOWN,
             )
-        )
+        ),
+        vol.Optional(
+            CONF_VEHICLES,
+            description={"suggested_value": "0=Standard-Fahrzeug, 1=Fahrzeug (1)"},
+        ): cv.string,
     }
 )
 
@@ -915,63 +913,12 @@ SELECTS_PER_CHARGEPOINT = [
     ),
     openwbSelectEntityDescription(
         key="connected_vehicle",
-        api_key=None,
+        api_key="connected_vehicle_name",
         api_key_command="vehicle",
-        api_value_map_command={
-            "Vehicle 0": "0",
-            "Vehicle 1": "1",
-            "Vehicle 2": "2",
-            "Vehicle 3": "3",
-            "Vehicle 4": "4",
-            "Vehicle 5": "5",
-            "Vehicle 6": "6",
-            "Vehicle 7": "7",
-            "Vehicle 8": "8",
-            "Vehicle 9": "9",
-            "Vehicle 10": "10",
-        },
         entity_category=EntityCategory.CONFIG,
         name="Angeschlossenes Fahrzeug",
         translation_key="selector_connected_vehicle",
-        valueMapCurrentValue={
-            0: "Vehicle 0",
-            1: "Vehicle 1",
-            2: "Vehicle 2",
-            3: "Vehicle 3",
-            4: "Vehicle 4",
-            5: "Vehicle 5",
-            6: "Vehicle 6",
-            7: "Vehicle 7",
-            8: "Vehicle 8",
-            9: "Vehicle 9",
-            10: "Vehicle 10",
-        },
-        valueMapCommand={
-            "Vehicle 0": "0",
-            "Vehicle 1": "1",
-            "Vehicle 2": "2",
-            "Vehicle 3": "3",
-            "Vehicle 4": "4",
-            "Vehicle 5": "5",
-            "Vehicle 6": "6",
-            "Vehicle 7": "7",
-            "Vehicle 8": "8",
-            "Vehicle 9": "9",
-            "Vehicle 10": "10",
-        },
-        options=[
-            "Vehicle 0",
-            "Vehicle 1",
-            "Vehicle 2",
-            "Vehicle 3",
-            "Vehicle 4",
-            "Vehicle 5",
-            "Vehicle 6",
-            "Vehicle 7",
-            "Vehicle 8",
-            "Vehicle 9",
-            "Vehicle 10",
-        ],
+        options=[],
         mqttTopicCommand="set/chargepoint/_chargePointID_/config/ev",
         mqttTopicCurrentValue="get/connected_vehicle/info",
         mqttTopicOptions=[
@@ -988,6 +935,7 @@ SELECTS_PER_CHARGEPOINT = [
             "vehicle/10/name",
         ],
         value_fn=lambda x: _safeJsonGet(x, "id"),
+        api_value_fn=lambda x: x,
         entity_registry_enabled_default=False,
     ),
 ]

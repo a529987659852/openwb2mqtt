@@ -20,6 +20,7 @@ from .common import OpenWBBaseEntity, async_setup_selects
 from .const import (
     COMM_METHOD_HTTP,
     COMMUNICATION_METHOD,
+    CONF_VEHICLES,
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
@@ -129,6 +130,13 @@ class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
     @property
     def options(self) -> list[str]:
         """Return a set of selectable options."""
+        if self.entity_description.key == "connected_vehicle":
+            vehicles = self.config_entry.options.get(
+                CONF_VEHICLES, self.config_entry.data.get(CONF_VEHICLES, {})
+            )
+            if len(vehicles) > 0:
+                return list(vehicles.values())
+            return []
         if self.entity_description.api_value_map_command:
             return list(self.entity_description.api_value_map_command.keys())
         return self.entity_description.options
@@ -138,12 +146,18 @@ class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
         """Return the selected option."""
         if self.coordinator.data is None:
             return None
+
+        if self.entity_description.key == "connected_vehicle":
+            return self.coordinator.data.get("connected_vehicle_name")
+
         key = self.entity_description.api_key
         value = self.coordinator.data.get(key)
+
         if self.entity_description.api_value_fn:
             value = self.entity_description.api_value_fn(value)
         elif self.entity_description.value_fn:
             value = self.entity_description.value_fn(value)
+
         if self.entity_description.valueMapCurrentValue:
             return self.entity_description.valueMapCurrentValue.get(value)
         return value
@@ -159,7 +173,9 @@ class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
 
         command_key = self.entity_description.api_key_command
         value = option
-        if self.entity_description.api_value_map_command:
+        if self.entity_description.key == "connected_vehicle":
+            value = self.coordinator.vehicle_name_to_id_map.get(option, option)
+        elif self.entity_description.api_value_map_command:
             value = self.entity_description.api_value_map_command.get(option, option)
         payload = f"{command_key}={value}&chargepoint_nr={chargepoint_nr}"
 

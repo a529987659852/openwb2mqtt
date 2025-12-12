@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+import voluptuous as vol
+
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlowWithReload
 from homeassistant.core import callback
 
 # Import global values.
@@ -11,16 +13,45 @@ from .const import (
     COMM_METHOD_HTTP,
     COMM_METHOD_MQTT,
     COMMUNICATION_METHOD,
+    CONF_VEHICLES,
+    CONF_WALLBOX_POWER,
     DATA_SCHEMA,
     DATA_SCHEMA_API,
     DATA_SCHEMA_MQTT,
-    DATA_SCHEMA_OPTIONS,
+    DATA_SCHEMA_OPTIONS_CP,
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
     MQTT_ROOT_TOPIC,
     MQTT_ROOT_TOPIC_DEFAULT,
 )
+
+
+def _parse_vehicles_string(vehicles_str: str) -> dict[str, str]:
+    """Parse a comma-separated string of ID=Name pairs into a dictionary."""
+    if not vehicles_str:
+        return {}
+    try:
+        vehicles = {}
+        for item in vehicles_str.split(","):
+            vid, name = item.split("=")
+            vid = vid.strip()
+            name = name.strip()
+            if vid in vehicles:
+                raise ValueError(f"Duplicate vehicle ID: {vid}")
+            if name in vehicles.values():
+                raise ValueError(f"Duplicate vehicle name: {name}")
+            vehicles[vid] = name
+        return vehicles
+    except IndexError as exc:
+        raise ValueError("Invalid vehicle format. Expected ID=Name.") from exc
+
+
+def _format_vehicles_dict(vehicles_dict: dict[str, str]) -> str:
+    """Format a dictionary of vehicles into a comma-separated string."""
+    if not vehicles_dict:
+        return ""
+    return ", ".join([f"{vid}={name}" for vid, name in vehicles_dict.items()])
 
 
 class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -37,9 +68,9 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlowHandler:
         """Get the options flow for this handler."""
-        return OptionsFlowHandler(config_entry)
+        return OptionsFlowHandler()
 
     async def async_step_user(self, user_input=None):
         """Handle the user step."""
@@ -78,14 +109,17 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            combined_data = {**self.stored_user_input, **user_input}
-            title = self._get_title(combined_data)
+            self.stored_user_input.update(user_input)
+            if self.stored_user_input.get(DEVICETYPE) == "chargepoint":
+                return await self.async_step_chargepoint()
+
+            title = self._get_title(self.stored_user_input)
             await self.async_set_unique_id(title)
             self._abort_if_unique_id_configured()
 
             return self.async_create_entry(
                 title=title,
-                data=combined_data,
+                data=self.stored_user_input,
             )
 
         data_schema = self.add_suggested_values_to_schema(data_schema, suggested_values)
@@ -93,6 +127,32 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id=step_id,
             data_schema=data_schema,
+            errors=errors,
+        )
+
+    async def async_step_chargepoint(self, user_input=None):
+        """Handle the chargepoint step of the configuration."""
+        errors = {}
+
+        if user_input is not None:
+            combined_data = {**self.stored_user_input, **user_input}
+            title = self._get_title(combined_data)
+            await self.async_set_unique_id(title)
+            self._abort_if_unique_id_configured()
+
+            # vehicle list as provided by the user (1=Standard-Fahrzeug, 2=Fahrzeug (2))
+            vehicle_list = user_input.get(CONF_VEHICLES)
+            # string -> dict{1=Standard-Fahrzeug, 2=Fahrzeug (2))}
+            combined_data[CONF_VEHICLES] = _parse_vehicles_string(vehicle_list)
+
+            return self.async_create_entry(
+                title=title,
+                data=combined_data,
+            )
+
+        return self.async_show_form(
+            step_id="chargepoint",
+            data_schema=DATA_SCHEMA_OPTIONS_CP,
             errors=errors,
         )
 
@@ -108,16 +168,36 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
         return f"{prefix}-{user_input[DEVICETYPE]}-{user_input[DEVICEID]}"
 
 
-class OptionsFlowHandler(OptionsFlow):
+class OptionsFlowHandler(OptionsFlowWithReload):
     """Handle an options flow for openWB2 MQTT."""
-
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
+
+        # Currently, only the chargepoint offers options
+        if self.config_entry.data.get(DEVICETYPE) != "chargepoint":
+            return self.async_abort(reason="no_conf_options_supported")
+
+        # Create the entry with user input
         if user_input is not None:
+            # vehicle list as provided by the user (1=Standard-Fahrzeug, 2=Fahrzeug (2))
+            vehicle_list = user_input.get(CONF_VEHICLES)
+            # string -> dict{1=Standard-Fahrzeug, 2=Fahrzeug (2))}
+            user_input[CONF_VEHICLES] = _parse_vehicles_string(vehicle_list)
             return self.async_create_entry(title="", data=user_input)
 
-        return self.async_show_form(step_id="init", data_schema=DATA_SCHEMA_OPTIONS)
+        # Otherwise show a form to the user and ask for configuration options
+        # If there are options currently configured, propose them.
+        wallbox_power = self.config_entry.options.get(CONF_WALLBOX_POWER)
+        suggested_values = {CONF_WALLBOX_POWER: wallbox_power}
+        current_options_carlist = self.config_entry.options.get(CONF_VEHICLES, {})
+        if len(current_options_carlist) > 0:
+            # Convert dict -> string for output
+            current_options_carlist_str = _format_vehicles_dict(current_options_carlist)
+            suggested_values[CONF_VEHICLES] = current_options_carlist_str
+
+        data_schema = self.add_suggested_values_to_schema(
+            DATA_SCHEMA_OPTIONS_CP, suggested_values
+        )
+
+        return self.async_show_form(step_id="init", data_schema=data_schema)
