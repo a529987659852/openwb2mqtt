@@ -109,8 +109,8 @@ DATA_SCHEMA_MQTT = vol.Schema(
 DATA_SCHEMA_API = vol.Schema(
     {
         vol.Required(API_PREFIX, default=MQTT_ROOT_TOPIC_DEFAULT): cv.string,
-        vol.Optional(API_URL): cv.string,
-        vol.Optional(API_TOKEN): cv.string,
+        vol.Required(API_URL): cv.string,
+        # vol.Optional(API_TOKEN): cv.string,
         vol.Required(DEVICETYPE, default="chargepoint"): SelectSelector(
             SelectSelectorConfig(
                 options=[
