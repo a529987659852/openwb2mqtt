@@ -12,10 +12,9 @@
         "step": {
             "user": {
                 "data": {
-                    "communication_method": "Schnittstelle",
-                    "wallbox_power": "Max. Ladeleistung"
+                    "communication_method": "Schnittstelle"
                 },
-                "description": "Wählen Sie die Kommunikationsschnittstelle und die Ladeleistung aus.",
+                "description": "Wählen Sie die Kommunikationsschnittstelle aus.",
                 "title": "openWB (Version 2)"
             },
             "details_api": {
@@ -25,7 +24,6 @@
                     "api_token": "API Token",
                     "DEVICETYPE": "Gerätetyp",
                     "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)"
-
                 },
                 "description": "Geben Sie einen Präfix ein, der die openWB eindeutig identifiziert.\n*Wenn Sie von MQTT zur API-Schnittstelle migrieren, geben Sie hier das MQTT-Wurzeltopic ein und die Integration erzeugt die Sensoren etc. mit den gleichen IDs.*\n\nPassen Sie die IP-Adresse an und wählen Sie den Gerätetyp aus.\nBei den  Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage und Batterie ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.",
                 "title": "API-Einstellungen für openWB"
@@ -38,6 +36,29 @@
                 },
                 "description": "Geben Sie ein MQTT-Wurzelptopic ein, unter dem die openWB auf Ihrem MQTT-Server erreichbar ist und wählen Sie den Gerätetyp aus. \nBei den  Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage und Batterie ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.\nBeim Gerätetyp Wallbox tragen Sie die Geräte-ID 0 ein.",
                 "title": "MQTT-Einstellungen für openWB"
+            },
+            "chargepoint": {
+                "data": {
+                    "wallbox_power": "Max. Ladeleistung",
+                    "vehicles": "Fahrzeugliste (ID=Fahrzeugname, kommagetrennt)"
+                },
+                "description": "Geben Sie die max. Ladeleistung Ihrer Wallbox (Pflichtfeld) und die Liste der Fahrzeuge (optional) als kommagetrennte Liste ein.\nGeben Sie die Fahrzeugliste im folgenden Format ein:\n\n\tFahrzeug-ID=Fahrzeugname,Fahrzeug-ID=Fahrzeugname\n\nAchten Sie darauf, dass die Fahrzeugnamen *exakt* den in der openWB angegebenen Werten entsprechen. Nur dann werden die vorhandenen Fahrzeuge korrekt in der Fahrzeugauswahlliste dargestellt.\nDie Fahrzeug-ID finden Sie auf dem Status-Tab der openWB.",
+                "title": "Ladepunkteinstellungen"
+            }
+        }
+    },
+    "options": {
+        "abort": {
+            "no_conf_options_supported": "Dieser Gerätetyp unterstützt keine Optionen."
+        },
+        "step": {
+            "init": {
+                "data": {
+                    "wallbox_power": "Max. Ladeleistung",
+                    "vehicles": "Fahrzeugliste (ID=Fahrzeugname, kommagetrennt)"
+                },
+                "description": "Geben Sie die max. Ladeleistung Ihrer Wallbox (Pflichtfeld) und die Liste der Fahrzeuge (optional) als kommagetrennte Liste ein.\nGeben Sie die Fahrzeugliste im folgenden Format ein:\n\n\tFahrzeug-ID=Fahrzeugname,Fahrzeug-ID=Fahrzeugname\n\nAchten Sie darauf, dass die Fahrzeugnamen *exakt* den in der openWB angegebenen Werten entsprechen. Nur dann werden die vorhandenen Fahrzeuge korrekt in der Fahrzeugauswahlliste dargestellt.\nDie Fahrzeug-ID finden Sie auf dem Status-Tab der openWB.",
+                "title": "Ladepunkteinstellungen"
             }
         }
     },
@@ -71,10 +92,11 @@
             "selector_chargepoint_chargemode": {
                 "state": {
                     "Instant Charging": "Sofortladen",
-                    "Scheduled Charging": "Zielladen",
+                    "Target Charging": "Zielladen",
                     "PV Charging": "PV-Laden",
                     "Stop": "Stop",
-                    "Standby": "Standby"
+                    "Standby": "Standby",
+                    "ECO Charging": "Eco"
                 }
             },
             "selector_connected_vehicle": {

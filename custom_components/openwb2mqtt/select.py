@@ -20,6 +20,7 @@ from .common import OpenWBBaseEntity, async_setup_selects
 from .const import (
     COMM_METHOD_HTTP,
     COMMUNICATION_METHOD,
+    CONF_VEHICLES,
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
@@ -129,6 +130,13 @@ class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
     @property
     def options(self) -> list[str]:
         """Return a set of selectable options."""
+        if self.entity_description.key == "connected_vehicle":
+            vehicles = self.config_entry.options.get(
+                CONF_VEHICLES, self.config_entry.data.get(CONF_VEHICLES, {})
+            )
+            if len(vehicles) > 0:
+                return list(vehicles.values())
+            return []
         if self.entity_description.api_value_map_command:
             return list(self.entity_description.api_value_map_command.keys())
         return self.entity_description.options
@@ -138,35 +146,60 @@ class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
         """Return the selected option."""
         if self.coordinator.data is None:
             return None
+
+        if self.entity_description.key == "connected_vehicle":
+            return self.coordinator.data.get("connected_vehicle_name")
+
         key = self.entity_description.api_key
         value = self.coordinator.data.get(key)
+
         if self.entity_description.api_value_fn:
             value = self.entity_description.api_value_fn(value)
         elif self.entity_description.value_fn:
             value = self.entity_description.value_fn(value)
+
         if self.entity_description.valueMapCurrentValue:
             return self.entity_description.valueMapCurrentValue.get(value)
         return value
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-        # Optimistic update
         self._attr_current_option = option
         self.async_write_ha_state()
 
-        if self.entity_description.api_value_map_command:
-            api_value = self.entity_description.api_value_map_command.get(option)
-            # Manually construct the payload string
-            payload = f"set_chargemode={api_value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
-        else:
-            # Fallback for other select entities
-            key = self.entity_description.api_key
-            value = option
-            if self.entity_description.valueMapCommand:
-                value = self.entity_description.valueMapCommand.get(option)
-            payload = {key: value}
+        command_key: str | None
+        payload: str
+        chargepoint_nr = self.config_entry.data[DEVICEID]
 
-        await self.coordinator.client.async_set_data(payload)
+        command_key = self.entity_description.api_key_command
+        value = option
+        if self.entity_description.key == "connected_vehicle":
+            value = self.coordinator.vehicle_name_to_id_map.get(option, option)
+        elif self.entity_description.api_value_map_command:
+            value = self.entity_description.api_value_map_command.get(option, option)
+        payload = f"{command_key}={value}&chargepoint_nr={chargepoint_nr}"
+
+        state_key = self.entity_description.api_key
+        if not command_key or not state_key:
+            _LOGGER.error("Missing api_key or api_key_command for %s", self.entity_id)
+            return
+
+        response = await self.coordinator.client.async_set_data(payload)
+        if (
+            response
+            and response.get("success")
+            and "data" in response
+            and command_key in response["data"]
+        ):
+            new_data = self.coordinator.data.copy()
+            new_value = response["data"][command_key]
+            if new_value == "eco":
+                new_value = "eco_charging"
+            new_data[state_key] = new_value
+            self.coordinator.async_set_updated_data(new_data)
+            return
+
+        # Fallback to refresh if optimistic update fails
         await self.coordinator.async_request_refresh()
 
     @property

@@ -142,31 +142,41 @@ class OpenWB2MqttApiNumber(CoordinatorEntity, NumberEntity):
             return None
         if self.entity_description.api_key:
             key = self.entity_description.api_key
-        else:
-            key = self.entity_description.key
         value = self.coordinator.data.get(key)
-        if self.entity_description.value_fn:
-            return self.entity_description.value_fn(value)
+        if self.entity_description.api_value_fn:
+            return self.entity_description.api_value_fn(value)
         return value
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
-        # if self.entity_description.api_key:
-        #    key = self.entity_description.api_key
-        # else:
-        #    key = self.entity_description.key.replace("_control", "")
+        command_key = self.entity_description.api_key_command
+        state_key = self.entity_description.api_key
+        chargepoint_nr = self.config_entry.data[DEVICEID]
 
-        # if key == "chargecurrent":
-        if self.entity_description.api_key == "chargecurrent":
-            await self.coordinator.client.async_get_data(
-                f"?chargecurrent={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
-            )
-        elif self.entity_description.api_key == "minimal_permanent_current":
-            await self.coordinator.client.async_get_data(
-                f"?minimal_permanent_current={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
-            )
-        # else:
-        #    await self.coordinator.client.async_set_data({key: value})
+        if not command_key or not state_key:
+            return
+
+        payload = f"{command_key}={value}&chargepoint_nr={chargepoint_nr}"
+
+        response = await self.coordinator.client.async_set_data(payload)
+        if (
+            response
+            and response.get("success")
+            and "data" in response
+            and command_key in response["data"]
+        ):
+            new_data = self.coordinator.data.copy()
+            if command_key == "instant_charging_amount":
+                try:
+                    new_data[state_key] = 1000 * float(response["data"][command_key])
+                except (ValueError, TypeError):
+                    new_data[state_key] = None
+            else:
+                new_data[state_key] = response["data"][command_key]
+            self.coordinator.async_set_updated_data(new_data)
+            return
+
+        # Fallback to refresh if optimistic update fails
         await self.coordinator.async_request_refresh()
 
     @property

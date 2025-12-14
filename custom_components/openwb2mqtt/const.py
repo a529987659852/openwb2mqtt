@@ -14,6 +14,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription,
 )
+from homeassistant.components.lock import LockEntityDescription
 from homeassistant.components.number import NumberDeviceClass, NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import (
@@ -22,8 +23,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.components.switch import SwitchEntityDescription
-from homeassistant.components.lock import LockEntityDescription
-
 from homeassistant.const import (
     PERCENTAGE,
     Platform,
@@ -43,13 +42,13 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
+# Platform.SWITCH,
 PLATFORMS = [
     Platform.BINARY_SENSOR,
+    Platform.LOCK,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
-    Platform.LOCK,
-    # Platform.SWITCH,
 ]
 
 # Global values
@@ -58,13 +57,16 @@ COMMUNICATION_METHOD = "communication_method"
 COMM_METHOD_MQTT = "MQTT"
 COMM_METHOD_HTTP = "HTTP API"
 API_URL = "api_url"
-API_TOKEN = "api_token"
+API_TOKEN = "api_token - leave empty for now"
 CONF_WALLBOX_POWER = "wallbox_power"
 MQTT_ROOT_TOPIC = "mqttroot"
 MQTT_ROOT_TOPIC_DEFAULT = "openWB"
 API_PREFIX = "api_prefix"
 DEVICETYPE = "DEVICETYPE"
 DEVICEID = "DEVICEID"
+CONF_VEHICLES = "vehicles"
+CONF_VEHICLE_NAME = "vehicle_name"
+CONF_VEHICLE_ID = "vehicle_id"
 MANUFACTURER = "openWB"
 MODEL = "openWB"
 
@@ -76,15 +78,6 @@ DATA_SCHEMA = vol.Schema(
                 options=[
                     SelectOptionDict(value=COMM_METHOD_MQTT, label="MQTT"),
                     SelectOptionDict(value=COMM_METHOD_HTTP, label="HTTP API"),
-                ],
-                mode=SelectSelectorMode.DROPDOWN,
-            )
-        ),
-        vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    SelectOptionDict(value="11", label="11 kW"),
-                    SelectOptionDict(value="22", label="22 kW"),
                 ],
                 mode=SelectSelectorMode.DROPDOWN,
             )
@@ -116,8 +109,8 @@ DATA_SCHEMA_MQTT = vol.Schema(
 DATA_SCHEMA_API = vol.Schema(
     {
         vol.Required(API_PREFIX, default=MQTT_ROOT_TOPIC_DEFAULT): cv.string,
-        vol.Optional(API_URL): cv.string,
-        vol.Optional(API_TOKEN): cv.string,
+        vol.Required(API_URL): cv.string,
+        # vol.Optional(API_TOKEN): cv.string,
         vol.Required(DEVICETYPE, default="chargepoint"): SelectSelector(
             SelectSelectorConfig(
                 options=[
@@ -137,7 +130,7 @@ DATA_SCHEMA_API = vol.Schema(
     }
 )
 
-DATA_SCHEMA_OPTIONS = vol.Schema(
+DATA_SCHEMA_OPTIONS_CP = vol.Schema(
     {
         vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
             SelectSelectorConfig(
@@ -147,17 +140,21 @@ DATA_SCHEMA_OPTIONS = vol.Schema(
                 ],
                 mode=SelectSelectorMode.DROPDOWN,
             )
-        )
+        ),
+        vol.Optional(
+            CONF_VEHICLES,
+            description={"suggested_value": "0=Standard-Fahrzeug, 1=Fahrzeug (1)"},
+        ): cv.string,
     }
 )
 
 
-def _safeFloat(x: str) -> float | None:
+def _safeFloat(x: str, c=1.0) -> float | None:
     """Safely convert a string to float, handling None and conversion errors."""
     if x is None:
         return None
     try:
-        return float(x)
+        return float(x) / c
     except (ValueError, TypeError):
         return None
 
@@ -336,6 +333,8 @@ class openwbSelectEntityDescription(SelectEntityDescription):
     """Enhance the select entity description for openWB."""
 
     valueMapCommand: dict | None = None
+    api_key: str | None = None
+    api_key_command: str | None = None
     api_value_map_command: dict | None = None
     valueMapCurrentValue: dict | None = None
     mqttTopicCommand: str | None = None
@@ -347,7 +346,7 @@ class openwbSelectEntityDescription(SelectEntityDescription):
     api_key: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbDynamicSelectEntityDescription(openwbSelectEntityDescription):
     """Enhance the select entity description for openWB with dynamic MQTT topic support."""
 
@@ -356,7 +355,7 @@ class openwbDynamicSelectEntityDescription(openwbSelectEntityDescription):
     mqttTopicCommandTemplate: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbSwitchEntityDescription(SwitchEntityDescription):
     """Enhance the select entity description for openWB."""
 
@@ -365,7 +364,7 @@ class openwbSwitchEntityDescription(SwitchEntityDescription):
     mqttTopicChargeMode: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openWBNumberEntityDescription(NumberEntityDescription):
     """Enhance the number entity description for openWB."""
 
@@ -373,10 +372,12 @@ class openWBNumberEntityDescription(NumberEntityDescription):
     mqttTopicCurrentValue: str | None = None
     mqttTopicChargeMode: str | None = None
     value_fn: Callable | None = None
+    api_value_fn: Callable | None = None
     api_key: str | None = None
+    api_key_command: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbDynamicNumberEntityDescription(openWBNumberEntityDescription):
     """Enhance the number entity description for openWB with dynamic MQTT topic support."""
 
@@ -387,7 +388,7 @@ class openwbDynamicNumberEntityDescription(openWBNumberEntityDescription):
 
 
 # Define a special sensor type for dynamic MQTT topic subscription
-@dataclass
+@dataclass(frozen=False)
 class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
     """Enhance the sensor entity description for openWB with dynamic MQTT topic support."""
 
@@ -395,7 +396,7 @@ class openwbDynamicSensorEntityDescription(openwbSensorEntityDescription):
     mqttTopicTemplate: str | None = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class openwbLockEntityDescription(LockEntityDescription):
     """A class that describes lock entities."""
 
@@ -405,6 +406,9 @@ class openwbLockEntityDescription(LockEntityDescription):
     payload_unlock: str = "false"
     state_locked: str = "true"
     state_unlocked: str = "false"
+    api_key: str | None = None
+    api_key_command: str | None = None
+    api_value_map_command: dict | None = None
 
 
 SENSORS_PER_CHARGEPOINT = [
@@ -440,24 +444,22 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/daily_imported",
-        api_key=None,
+        api_key="daily_imported",
         name="Geladene Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
-        if _safeFloat(x) is not None
-        else None,
+        value_fn=lambda x: round(float(_safeFloat(x) or 0) / 1000.0, 3),
         icon="mdi:counter",
     ),
     openwbSensorEntityDescription(
         key="get/daily_exported",
-        api_key=None,
+        api_key="daily_exported",
         name="Entladene Energie (Heute)",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda x: round(_safeFloat(x) / 1000.0, 3)
+        value_fn=lambda x: round(float(_safeFloat(x) or 0) / 1000.0, 3)
         if _safeFloat(x) is not None
         else None,
         icon="mdi:counter",
@@ -569,7 +571,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/power_factors",
-        api_key=None,
+        api_key="power_factors",
         name="Leistungsfaktor (L1)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
@@ -579,7 +581,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/power_factors",
-        api_key=None,
+        api_key="power_factors",
         name="Leistungsfaktor (L2)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
@@ -589,7 +591,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/power_factors",
-        api_key=None,
+        api_key="power_factors",
         name="Leistungsfaktor (L3)",
         device_class=SensorDeviceClass.POWER_FACTOR,
         state_class=SensorStateClass.MEASUREMENT,
@@ -637,7 +639,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="config",
-        api_key=None,
+        api_key="config_name",
         name="Ladepunkt",
         device_class=None,
         native_unit_of_measurement=None,
@@ -645,6 +647,7 @@ SENSORS_PER_CHARGEPOINT = [
         entity_registry_visible_default=False,
         # value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
         value_fn=lambda x: _safeJsonGet(x, "name"),
+        api_value_fn=lambda x: x,
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/info",
@@ -659,25 +662,27 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/info",
-        api_key=None,
+        api_key="connected_vehicle_name",
         name="Fahrzeug",
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
         value_fn=lambda x: _safeStringOp(
-            _safeJsonGet(x, "name"), lambda s: s.replace('"', "")
+            str(_safeJsonGet(x, "name")), lambda s: s.replace('"', "")
         ),
+        api_value_fn=lambda x: _safeStringOp(x, lambda s: s.replace('"', "")),
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/config",
-        api_key=None,
+        api_key="charge_template_name",
         name="Lade-Profil",
         device_class=None,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_visible_default=False,
         value_fn=lambda x: _safeJsonGet(x, "charge_template"),
+        api_value_fn=lambda x: x,
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/config",
@@ -719,10 +724,11 @@ SENSORS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=False,
         icon="mdi:clock-time-eight",
         value_fn=lambda x: _extractTimestampFromJson(x, "timestamp"),
+        api_value_fn=lambda x: _extractTimestamp(x) if x not in {"null"} else None,
     ),
     openwbSensorEntityDescription(
         key="get/rfid",
-        api_key=None,
+        api_key="rfid",
         name="Zuletzt gescannter RFID-Tag",
         device_class=None,
         native_unit_of_measurement=None,
@@ -742,7 +748,7 @@ SENSORS_PER_CHARGEPOINT = [
     ),
     openwbSensorEntityDescription(
         key="get/connected_vehicle/soc",
-        api_key=None,
+        api_key="range_charged",
         name="Geladene Entfernung",
         device_class=None,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
@@ -751,10 +757,11 @@ SENSORS_PER_CHARGEPOINT = [
         entity_registry_enabled_default=False,
         value_fn=lambda x: _safeJsonGet(x, "range_charged"),
         suggested_display_precision=1,
+        api_value_fn=lambda x: x,
     ),
     openwbDynamicSensorEntityDescription(
         key="instant_charging_current",
-        api_key=None,
+        api_key="instant_charging_current",
         name="Soll-Ladestrom (Sofortladen)",
         device_class=SensorDeviceClass.CURRENT,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
@@ -766,10 +773,11 @@ SENSORS_PER_CHARGEPOINT = [
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "current"
         ),
+        api_value_fn=lambda x: _safeFloat(x),
     ),
     openwbDynamicSensorEntityDescription(
         key="pv_charging_min_current",
-        api_key=None,
+        api_key="pv_charging_min_current",
         name="Min. Dauerstrom (PV-Laden)",
         device_class=SensorDeviceClass.CURRENT,
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
@@ -781,29 +789,30 @@ SENSORS_PER_CHARGEPOINT = [
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "pv_charging", "min_current"
         ),
+        api_value_fn=lambda x: _safeFloat(x),
     ),
-    # Dynamic number for price-based charging maximum price
-    openwbDynamicSensorEntityDescription(
-        key="price_based_charging_max_price",
-        name="Max. Preis (Strompreisbasiertes Laden)",
-        native_unit_of_measurement="ct/kWh",
-        device_class=None,
-        icon="mdi:currency-eur",
-        # native_min_value=0.0,
-        # native_max_value=1000.0,
-        # native_step=0.1,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        # This is a template that will be formatted with the charge template ID for reading the current value
-        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        # This is a template that will be formatted with the charge template ID for setting the current value
-        # mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
-        # Extract the current value from the JSON payload
-        value_fn=lambda x: _safeNestedGet(x, "chargemode", "eco_charging", "max_price")
-        * 100000
-        if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
-        else None,
-        # convert_before_publish_fn=lambda x: x / 100000.0,
-    ),
+    # # Dynamic number for price-based charging maximum price
+    # openwbDynamicSensorEntityDescription(
+    #     key="price_based_charging_max_price",
+    #     name="Max. Preis (Strompreisbasiertes Laden)",
+    #     native_unit_of_measurement="ct/kWh",
+    #     device_class=None,
+    #     icon="mdi:currency-eur",
+    #     # native_min_value=0.0,
+    #     # native_max_value=1000.0,
+    #     # native_step=0.1,
+    #     entity_category=EntityCategory.DIAGNOSTIC,
+    #     # This is a template that will be formatted with the charge template ID for reading the current value
+    #     mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+    #     # This is a template that will be formatted with the charge template ID for setting the current value
+    #     # mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
+    #     # Extract the current value from the JSON payload
+    #     value_fn=lambda x: _safeNestedGet(x, "chargemode", "eco_charging", "max_price")
+    #     * 100000
+    #     if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
+    #     else None,
+    #     # convert_before_publish_fn=lambda x: x / 100000.0,
+    # ),
 ]
 
 BINARY_SENSORS_PER_CHARGEPOINT = [
@@ -831,42 +840,51 @@ BINARY_SENSORS_PER_CHARGEPOINT = [
 SELECTS_PER_CHARGEPOINT = [
     openwbDynamicSelectEntityDescription(
         key="instant_charging_limitation",
-        api_key=None,
+        api_key="instant_charging_limit",
+        api_key_command="instant_charging_limit",
+        api_value_map_command={
+            "Keine": "none",
+            "SoC": "soc",
+            "Energiemenge": "amount",
+        },
         entity_category=EntityCategory.CONFIG,
         name="Begrenzung (Sofortladen)",
         translation_key="selector_chargepoint_dynamic_chargemode",
         valueMapCurrentValue={
             "none": "Keine",
-            "soc": "EV-SoC",
+            "soc": "SoC",
             "amount": "Energiemenge",
         },
-        valueMapCommand={"Keine": "none", "EV-SoC": "soc", "Energiemenge": "amount"},
+        valueMapCommand={"Keine": "none", "SoC": "soc", "Energiemenge": "amount"},
         mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/selected",
         mqttTopicCurrentValueTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        options=["Keine", "EV-SoC", "Energiemenge"],
+        options=["Keine", "SoC", "Energiemenge"],
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "limit", "selected"
         ),
+        api_value_fn=lambda x: x,
     ),
     openwbSelectEntityDescription(
         key="chargemode",
         api_key="chargemode",
+        api_key_command="set_chargemode",
         entity_category=EntityCategory.CONFIG,
         name="Lademodus",
         translation_key="selector_chargepoint_chargemode",
         valueMapCurrentValue={
             "instant_charging": "Instant Charging",
-            "scheduled_charging": "Scheduled Charging",
+            "instant": "Instant Charging",
+            # "scheduled_charging": "Scheduled Charging",
             "pv_charging": "PV Charging",
             "eco_charging": "ECO Charging",
+            "target": "Target Charging",
             "standby": "Standby",
             "stop": "Stop",
-            "instant": "Instant Charging",
             "pv": "PV Charging",
         },
         valueMapCommand={
             "Instant Charging": "instant_charging",
-            "Scheduled Charging": "scheduled_charging",
+            # "Scheduled Charging": "scheduled_charging",
             "PV Charging": "pv_charging",
             "ECO Charging": "eco_charging",
             "Standby": "standby",
@@ -876,15 +894,17 @@ SELECTS_PER_CHARGEPOINT = [
             "Instant Charging": "instant",
             "PV Charging": "pv",
             "ECO Charging": "eco",
+            "Target Charging": "target",
             "Stop": "stop",
         },
         mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/selected",
         mqttTopicCurrentValue="get/connected_vehicle/config",
         options=[
             "Instant Charging",
-            "Scheduled Charging",
+            # "Scheduled Charging",
             "PV Charging",
             "ECO Charging",
+            "Target Charging",
             "Stop",
             "Standby",
         ],
@@ -893,52 +913,15 @@ SELECTS_PER_CHARGEPOINT = [
     ),
     openwbSelectEntityDescription(
         key="connected_vehicle",
-        api_key=None,
+        api_key="connected_vehicle_name",
+        api_key_command="vehicle",
         entity_category=EntityCategory.CONFIG,
         name="Angeschlossenes Fahrzeug",
         translation_key="selector_connected_vehicle",
-        valueMapCurrentValue={
-            0: "Vehicle 0",
-            1: "Vehicle 1",
-            2: "Vehicle 2",
-            3: "Vehicle 3",
-            4: "Vehicle 4",
-            5: "Vehicle 5",
-            6: "Vehicle 6",
-            7: "Vehicle 7",
-            8: "Vehicle 8",
-            9: "Vehicle 9",
-            10: "Vehicle 10",
-        },
-        valueMapCommand={
-            "Vehicle 0": "0",
-            "Vehicle 1": "1",
-            "Vehicle 2": "2",
-            "Vehicle 3": "3",
-            "Vehicle 4": "4",
-            "Vehicle 5": "5",
-            "Vehicle 6": "6",
-            "Vehicle 7": "7",
-            "Vehicle 8": "8",
-            "Vehicle 9": "9",
-            "Vehicle 10": "10",
-        },
-        options=[
-            "Vehicle 0",
-            "Vehicle 1",
-            "Vehicle 2",
-            "Vehicle 3",
-            "Vehicle 4",
-            "Vehicle 5",
-            "Vehicle 6",
-            "Vehicle 7",
-            "Vehicle 8",
-            "Vehicle 9",
-            "Vehicle 10",
-        ],
+        options=[],
         mqttTopicCommand="set/chargepoint/_chargePointID_/config/ev",
         mqttTopicCurrentValue="get/connected_vehicle/info",
-        mqttTopicOptions=(
+        mqttTopicOptions=[
             "vehicle/0/name",
             "vehicle/1/name",
             "vehicle/2/name",
@@ -950,8 +933,9 @@ SELECTS_PER_CHARGEPOINT = [
             "vehicle/8/name",
             "vehicle/9/name",
             "vehicle/10/name",
-        ),
+        ],
         value_fn=lambda x: _safeJsonGet(x, "id"),
+        api_value_fn=lambda x: x,
         entity_registry_enabled_default=False,
     ),
 ]
@@ -959,7 +943,8 @@ SELECTS_PER_CHARGEPOINT = [
 NUMBERS_PER_CHARGEPOINT = [
     openWBNumberEntityDescription(
         key="manual_soc",
-        api_key=None,
+        api_key="soc",
+        api_key_command="manual_soc",
         name="Aktueller SoC (Manuelles SoC Modul)",
         native_unit_of_measurement=PERCENTAGE,
         device_class=NumberDeviceClass.BATTERY,
@@ -970,12 +955,15 @@ NUMBERS_PER_CHARGEPOINT = [
         mqttTopicCommand="set/vehicle/_vehicleID_/soc_module/calculated_soc_state/manual_soc",
         mqttTopicCurrentValue="get/connected_vehicle/soc",
         mqttTopicChargeMode=None,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
+        # entity_registry_enabled_default=False,
         value_fn=lambda x: _safeJsonGet(x, "soc"),
+        api_value_fn=lambda x: _safeFloat(x),
     ),
     openwbDynamicNumberEntityDescription(
         key="instant_charging_current_control",
-        api_key="chargecurrent",
+        api_key="instant_charging_current",
+        api_key_command="chargecurrent",
         name="Soll-Ladestrom (Sofortladen)",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=NumberDeviceClass.CURRENT,
@@ -989,10 +977,12 @@ NUMBERS_PER_CHARGEPOINT = [
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "current"
         ),
+        api_value_fn=lambda x: _safeFloat(x),
     ),
     openwbDynamicNumberEntityDescription(
         key="pv_charging_min_current_control",
-        api_key="minimal_permanent_current",
+        api_key="pv_charging_min_current",
+        api_key_command="minimal_permanent_current",
         name="Min. Dauerstrom (PV-Laden)",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=NumberDeviceClass.CURRENT,
@@ -1006,15 +996,17 @@ NUMBERS_PER_CHARGEPOINT = [
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "pv_charging", "min_current"
         ),
+        api_value_fn=lambda x: _safeFloat(x),
     ),
     openwbDynamicNumberEntityDescription(
         key="instant_charging_energy_limit_control",
-        api_key=None,
+        api_key="instant_charging_amount",
+        api_key_command="instant_charging_amount",
         name="Energie-Limit (Sofortladen)",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=NumberDeviceClass.ENERGY,
         native_min_value=1,
-        native_max_value=80,
+        native_max_value=50,
         native_step=1,
         entity_category=EntityCategory.CONFIG,
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
@@ -1027,10 +1019,12 @@ NUMBERS_PER_CHARGEPOINT = [
         if _safeNestedGet(x, "chargemode", "instant_charging", "limit", "amount")
         is not None
         else None,
+        api_value_fn=lambda x: _safeFloat(x, 1000),
     ),
     openwbDynamicNumberEntityDescription(
         key="instant_charging_soc_limit_control",
-        api_key=None,
+        api_key="instant_charging_soc",
+        api_key_command="instant_charging_soc",
         name="SoC-Limit (Sofortladen)",
         native_unit_of_measurement=PERCENTAGE,
         device_class=NumberDeviceClass.BATTERY,
@@ -1046,25 +1040,29 @@ NUMBERS_PER_CHARGEPOINT = [
         if _safeNestedGet(x, "chargemode", "instant_charging", "limit", "soc")
         is not None
         else None,
+        api_value_fn=lambda x: _safeFloat(x),
     ),
-    openwbDynamicNumberEntityDescription(
-        key="price_based_charging_max_price",
-        api_key=None,
-        name="Max. Preis (Strompreisbasiertes Laden)",
-        native_unit_of_measurement="ct/kWh",
-        device_class=None,
-        icon="mdi:currency-eur",
-        native_min_value=0.0,
-        native_max_value=1000.0,
-        native_step=0.1,
-        entity_category=EntityCategory.CONFIG,
-        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
-        value_fn=lambda x: _safeNestedGet(x, "et", "max_price") * 100000
-        if _safeNestedGet(x, "et", "max_price") is not None
-        else None,
-        convert_before_publish_fn=lambda x: x / 100000.0,
-    ),
+    # openwbDynamicNumberEntityDescription(
+    #     key="price_based_charging_max_price",
+    #     api_key="max_price_eco",
+    #     api_key_command="max_price_eco",
+    #     name="Max. Preis (Strompreisbasiertes Laden)",
+    #     native_unit_of_measurement="ct/kWh",
+    #     device_class=None,
+    #     icon="mdi:currency-eur",
+    #     native_min_value=0.0,
+    #     native_max_value=1000.0,
+    #     native_step=0.1,
+    #     entity_category=EntityCategory.CONFIG,
+    #     mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+    #     mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
+    #     value_fn=lambda x: _safeNestedGet(x, "chargemode", "eco_charging", "max_price")
+    #     * 100000
+    #     if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
+    #     else None,
+    #     # convert_before_publish_fn=lambda x: x / 100000.0,
+    #     api_value_fn=lambda x: _safeFloat(x),
+    # ),
 ]
 
 SENSORS_PER_COUNTER = [
@@ -1645,13 +1643,15 @@ BINARY_SENSORS_PER_VEHICLE = [
 LOCKS_PER_CHARGEPOINT = [
     openwbLockEntityDescription(
         key="manual_lock",
+        api_key="manual_lock",
+        api_key_command="chargepoint_lock",
         name="Manuelle Sperre",
         entity_category=EntityCategory.CONFIG,
         translation_key="manual_lock",
-        # openWB Topic-Struktur: openWB/chargepoint/2/set/manual_lock
-        mqttTopicCommand="set/manual_lock",
-        # Laut Ihrer Beschreibung wird der State über dasselbe Topic gelesen
-        mqttTopicCurrentValue="set/manual_lock",
+        # openWB Topic-Struktur: openWB/set/chargepoint/4/set/manual_lock
+        mqttTopicCommand="set/chargepoint/_chargePointID_/set/manual_lock",
+        mqttTopicCurrentValue="_chargePointID_/set/manual_lock",
+        api_value_map_command={"lock": "1", "unlock": "0"},
     ),
 ]
 
