@@ -1,7 +1,9 @@
 # Update December 2025
 You can now use the simpleAPI (HTTP version) instead of the classic MQTT integration which I've been using in the past. Note that the simpleAPI (MQTT version) is not and will not be supported.
 
-For more information about setup and migration, watch this video: https://youtu.be/7lbCmwPlw7s
+For more information about setup and migration, watch this video:
+
+[![Watch the video](https://img.youtube.com/vi/7lbCmwPlw7s/hqdefault.jpg)](https://www.youtube.com/embed/7lbCmwPlw7s)
 
 # openWB2 with Home Assistant
 
