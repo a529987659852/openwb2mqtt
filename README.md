@@ -1,6 +1,8 @@
 # Update December 2025
 You can now use the simpleAPI (HTTP version) instead of the classic MQTT integration which I've been using in the past. Note that the simpleAPI (MQTT version) is not and will not be supported.
 
+For more information about setup and migration, watch this video: https://youtu.be/7lbCmwPlw7s
+
 # openWB2 with Home Assistant
 
 This is a custom component for Home Assistant supporting the [openWB](https://openwb.de/main/) wallbox for charging electric vehicles. The integration subscribes to MQTT topics which are used by openWB to broadcast information and displays this informations as entities. You can also change, for example, the charge mode of a charge point.
