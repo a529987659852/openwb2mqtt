@@ -115,7 +115,7 @@ DATA_SCHEMA_API = vol.Schema(
             SelectSelectorConfig(
                 options=[
                     # Some device types are not available via api
-                    # SelectOptionDict(value="controller", label="Controller"),
+                    SelectOptionDict(value="controller", label="Controller"),
                     SelectOptionDict(value="counter", label="Counter"),
                     SelectOptionDict(value="chargepoint", label="Chargepoint"),
                     SelectOptionDict(value="pv", label="PV Generator"),
@@ -1499,6 +1499,7 @@ SENSORS_CONTROLLER = [
     # System
     openwbSensorEntityDescription(
         key="system/ip_address",
+        api_key=None,
         name="IP-Adresse",
         device_class=None,
         native_unit_of_measurement=None,
@@ -1508,6 +1509,7 @@ SENSORS_CONTROLLER = [
     ),
     openwbSensorEntityDescription(
         key="system/version",
+        api_key=None,
         name="Version",
         device_class=None,
         native_unit_of_measurement=None,
@@ -1517,15 +1519,18 @@ SENSORS_CONTROLLER = [
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
+        api_key="timestamp",
         name="Datenaktualisierung",
         device_class=SensorDeviceClass.TIMESTAMP,
         native_unit_of_measurement=None,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:clock-time-eight",
         value_fn=lambda x: _extractTimestampFromJson(x, "timestamp"),
+        api_value_fn=lambda x: _extractTimestamp(x),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
+        api_key="grid",
         name="Netzbezug/-einspeisung",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1533,9 +1538,11 @@ SENSORS_CONTROLLER = [
         suggested_display_precision=0,
         icon="mdi:transmission-tower",
         value_fn=lambda x: _splitJsonLastLiveValues(x, "grid", 1000),
+        api_value_fn=lambda x: _safeFloat(x, 1000, op="mult"),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
+        api_key="house-power",
         name="Hausverbrauch",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1543,9 +1550,11 @@ SENSORS_CONTROLLER = [
         suggested_display_precision=0,
         icon="mdi:home-lightning-bolt",
         value_fn=lambda x: _splitJsonLastLiveValues(x, "house-power", 1000),
+        api_value_fn=lambda x: _safeFloat(x, 1000, op="mult"),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
+        api_key="pv-all",
         name="PV-Leistung (Gesamt)",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1553,9 +1562,11 @@ SENSORS_CONTROLLER = [
         suggested_display_precision=0,
         icon="mdi:solar-power",
         value_fn=lambda x: _splitJsonLastLiveValues(x, "pv-all", 1000),
+        api_value_fn=lambda x: _safeFloat(x, 1000, op="mult"),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
+        api_key="charging-all",
         name="Ladeleistung (Gesamt)",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1563,9 +1574,11 @@ SENSORS_CONTROLLER = [
         suggested_display_precision=0,
         icon="mdi:car-electric-outline",
         value_fn=lambda x: _splitJsonLastLiveValues(x, "charging-all", 1000),
+        api_value_fn=lambda x: _safeFloat(x, 1000, op="mult"),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
+        api_key="bat-all-power",
         name="Batterieleistung (Gesamt)",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -1573,15 +1586,18 @@ SENSORS_CONTROLLER = [
         suggested_display_precision=0,
         icon="mdi:battery-charging",
         value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-power", 1000),
+        api_value_fn=lambda x: _safeFloat(x, 1000, op="mult"),
     ),
     openwbSensorEntityDescription(
         key="system/lastlivevaluesJson",
+        api_key="bat-all-soc",
         name="Batterieladung (Gesamt)",
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
         value_fn=lambda x: _splitJsonLastLiveValues(x, "bat-all-soc", 1),
+        api_value_fn=lambda x: _safeFloat(x),
     ),
 ]
 

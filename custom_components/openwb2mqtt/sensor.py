@@ -45,16 +45,15 @@ async def async_setup_entry(
 
     if config.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
         coordinator = hass.data[DOMAIN][config.entry_id]
-        # Device type controller not yet implemented in API
-        # if device_type == "controller":
-        #     for description in SENSORS_CONTROLLER:
-        #         if description.api_key is None:
-        #             continue
-        #         sensors_to_add.append(
-        #             OpenWB2MqttApiSensor(coordinator, description, config)
-        #         )
-        # elif device_type == "chargepoint":
-        if device_type == "chargepoint":
+        if device_type == "controller":
+            for description in SENSORS_CONTROLLER:
+                if description.api_key is None:
+                    continue
+                sensors_to_add.append(
+                    OpenWB2MqttApiSensor(coordinator, description, config)
+                )
+        elif device_type == "chargepoint":
+            # if device_type == "chargepoint":
             for description in SENSORS_PER_CHARGEPOINT:
                 if description.api_key is None:
                     continue

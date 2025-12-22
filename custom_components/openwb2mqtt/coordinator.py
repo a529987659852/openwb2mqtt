@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import json
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -83,6 +84,12 @@ class OpenWB2MqttDataUpdateCoordinator(DataUpdateCoordinator):
                 )
                 _LOGGER.debug(response)
                 return response.get(f"{self._device_type}_{self._device_id}")
+            if self._device_type == "controller":
+                response = await self.client.async_get_data(
+                    "?get_lastlivevaluesjson&raw=true"
+                )
+                _LOGGER.debug(response)
+                return response
             # Add other device types here in the future
             return {}
         except (
