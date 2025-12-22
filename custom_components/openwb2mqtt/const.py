@@ -149,12 +149,15 @@ DATA_SCHEMA_OPTIONS_CP = vol.Schema(
 )
 
 
-def _safeFloat(x: str, c=1.0) -> float | None:
+def _safeFloat(x: str, c=1.0, op="div") -> float | None:
     """Safely convert a string to float, handling None and conversion errors."""
     if x is None:
         return None
     try:
-        return float(x) / c
+        if op == "div":
+            return float(x) / c
+        elif op == "mult":
+            return float(x) * c
     except (ValueError, TypeError):
         return None
 
@@ -791,28 +794,26 @@ SENSORS_PER_CHARGEPOINT = [
         ),
         api_value_fn=lambda x: _safeFloat(x),
     ),
-    # # Dynamic number for price-based charging maximum price
-    # openwbDynamicSensorEntityDescription(
-    #     key="price_based_charging_max_price",
-    #     name="Max. Preis (Strompreisbasiertes Laden)",
-    #     native_unit_of_measurement="ct/kWh",
-    #     device_class=None,
-    #     icon="mdi:currency-eur",
-    #     # native_min_value=0.0,
-    #     # native_max_value=1000.0,
-    #     # native_step=0.1,
-    #     entity_category=EntityCategory.DIAGNOSTIC,
-    #     # This is a template that will be formatted with the charge template ID for reading the current value
-    #     mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-    #     # This is a template that will be formatted with the charge template ID for setting the current value
-    #     # mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
-    #     # Extract the current value from the JSON payload
-    #     value_fn=lambda x: _safeNestedGet(x, "chargemode", "eco_charging", "max_price")
-    #     * 100000
-    #     if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
-    #     else None,
-    #     # convert_before_publish_fn=lambda x: x / 100000.0,
-    # ),
+    # Dynamic number for price-based charging maximum price
+    openwbDynamicSensorEntityDescription(
+        key="price_based_charging_max_price",
+        name="Max. Preis (Strompreisbasiertes Laden)",
+        native_unit_of_measurement="ct/kWh",
+        device_class=None,
+        icon="mdi:currency-eur",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        # This is a template that will be formatted with the charge template ID for reading the current value
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        # This is a template that will be formatted with the charge template ID for setting the current value
+        # Extract the current value from the JSON payload
+        value_fn=lambda x: _safeFloat(
+            _safeNestedGet(x, "chargemode", "eco_charging", "max_price"),
+            c=100000,
+            op="mult",
+        )
+        if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
+        else None,
+    ),
 ]
 
 BINARY_SENSORS_PER_CHARGEPOINT = [
@@ -1042,27 +1043,30 @@ NUMBERS_PER_CHARGEPOINT = [
         else None,
         api_value_fn=lambda x: _safeFloat(x),
     ),
-    # openwbDynamicNumberEntityDescription(
-    #     key="price_based_charging_max_price",
-    #     api_key="max_price_eco",
-    #     api_key_command="max_price_eco",
-    #     name="Max. Preis (Strompreisbasiertes Laden)",
-    #     native_unit_of_measurement="ct/kWh",
-    #     device_class=None,
-    #     icon="mdi:currency-eur",
-    #     native_min_value=0.0,
-    #     native_max_value=1000.0,
-    #     native_step=0.1,
-    #     entity_category=EntityCategory.CONFIG,
-    #     mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-    #     mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
-    #     value_fn=lambda x: _safeNestedGet(x, "chargemode", "eco_charging", "max_price")
-    #     * 100000
-    #     if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
-    #     else None,
-    #     # convert_before_publish_fn=lambda x: x / 100000.0,
-    #     api_value_fn=lambda x: _safeFloat(x),
-    # ),
+    openwbDynamicNumberEntityDescription(
+        key="price_based_charging_max_price",
+        api_key="max_price_eco",
+        api_key_command="max_price_eco",
+        name="Max. Preis (Strompreisbasiertes Laden)",
+        native_unit_of_measurement="ct/kWh",
+        device_class=None,
+        icon="mdi:currency-eur",
+        native_min_value=0.0,
+        native_max_value=100,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
+        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
+        value_fn=lambda x: _safeFloat(
+            _safeNestedGet(x, "chargemode", "eco_charging", "max_price"),
+            c=100000,
+            op="mult",
+        )
+        if _safeNestedGet(x, "chargemode", "eco_charging", "max_price") is not None
+        else None,
+        # convert_before_publish_fn=lambda x: x / 100000.0,
+        api_value_fn=lambda x: _safeFloat(x),
+    ),
 ]
 
 SENSORS_PER_COUNTER = [
