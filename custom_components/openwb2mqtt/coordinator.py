@@ -40,7 +40,7 @@ class OpenWB2MqttDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=f"{DOMAIN}_{device_type}_{device_id}",
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(seconds=15),
             update_method=self._async_update_data,
         )
         self.config_entry = config_entry
