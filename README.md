@@ -45,7 +45,7 @@ After installation, **restart Home Assistant**.
 
 ### 3.1 API (HTTP) Configuration (Recommended)
 
-Follow these steps for the simplest way to connect your openWB. This method uses the openWB SimpleAPI, which is documented [here](https://wiki.openwb.de/doku.php?id=openwb:2.1.9:simpleapi).
+Follow these steps for the simplest way to connect your openWB. This method uses the openWB SimpleAPI, which is documented [here](https://wiki.openwb.de/doku.php?id=openwb:vc:2.1.9:simpleapi).
 
 #### Step 1: Add the Integration
 *   In Home Assistant, go to **Settings > Devices & Services**.
