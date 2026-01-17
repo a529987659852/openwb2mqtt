@@ -89,11 +89,12 @@ async def async_setup_entry(
             if dynamic_numbers:
                 entities = [
                     openwbDynamicNumber(
+                        config_entry=config,
                         uniqueID=config.unique_id,
                         description=desc,
-                        device_friendly_name=f"Chargepoint {config.data['DEVICEID']}",
+                        device_friendly_name=f"Chargepoint {config.data[DEVICEID]}",
                         mqtt_root=config.data["mqttroot"],
-                        device_id=config.data["DEVICEID"],
+                        device_id=config.data[DEVICEID],
                     )
                     for desc in dynamic_numbers
                 ]
@@ -334,6 +335,7 @@ class openwbDynamicNumber(OpenWBBaseEntity, NumberEntity):
 
     def __init__(
         self,
+        config_entry: ConfigEntry,
         uniqueID: str,
         device_friendly_name: str,
         mqtt_root: str,
@@ -348,6 +350,7 @@ class openwbDynamicNumber(OpenWBBaseEntity, NumberEntity):
             mqtt_root=mqtt_root,
         )
 
+        self.config_entry = config_entry
         self.entity_description = description
         self._attr_unique_id = slugify(f"{uniqueID}-{description.name}")
         self.entity_id = f"{NUMBER_DOMAIN}.{uniqueID}-{description.name}"
@@ -366,6 +369,18 @@ class openwbDynamicNumber(OpenWBBaseEntity, NumberEntity):
         self._attr_native_min_value = description.native_min_value
         self._attr_native_max_value = description.native_max_value
         self._attr_native_step = description.native_step
+
+        if self.entity_description.key in {
+            "instant_charging_current_control",
+            "pv_charging_min_current_control",
+        }:
+            power = self.config_entry.options.get(
+                CONF_WALLBOX_POWER, self.config_entry.data.get(CONF_WALLBOX_POWER)
+            )
+            if power == "11":
+                self._attr_native_max_value = 16
+            else:
+                self._attr_native_max_value = 32
 
     async def async_added_to_hass(self):
         """Subscribe to MQTT events."""
@@ -420,6 +435,7 @@ class openwbDynamicNumber(OpenWBBaseEntity, NumberEntity):
         template_topic = self.entity_description.mqttTopicTemplate.format(
             mqtt_root=self.mqtt_root,
             charge_template_id=self._charge_template_id,
+            chargepoint_id=self.device_id,
         )
 
         @callback
@@ -470,6 +486,7 @@ class openwbDynamicNumber(OpenWBBaseEntity, NumberEntity):
         command_topic = self.entity_description.mqttTopicCommandTemplate.format(
             mqtt_root=self.mqtt_root,
             charge_template_id=self._charge_template_id,
+            chargepoint_id=self.device_id,
         )
 
         # Check if this value must be converted before publishing
