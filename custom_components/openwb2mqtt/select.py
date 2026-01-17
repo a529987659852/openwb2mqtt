@@ -323,6 +323,8 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
         """Change the selected option."""
         success = self.publishToMQTT(option)
         if success:
+            # self._attr_current_option = option
+            # self.async_write_ha_state()
             return
         _LOGGER.error("Error publishing MQTT message")
 
