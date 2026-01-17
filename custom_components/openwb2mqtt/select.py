@@ -323,8 +323,6 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
         """Change the selected option."""
         success = self.publishToMQTT(option)
         if success:
-            # self._attr_current_option = option
-            # self.async_write_ha_state()
             return
         _LOGGER.error("Error publishing MQTT message")
 
@@ -494,6 +492,7 @@ class openwbDynamicSelect(OpenWBBaseEntity, SelectEntity):
             self.entity_description.mqttTopicCurrentValueTemplate.format(
                 mqtt_root=self.mqtt_root,
                 charge_template_id=self._charge_template_id,
+                chargepoint_id=self.device_ID,
             )
         )
 
@@ -557,6 +556,7 @@ class openwbDynamicSelect(OpenWBBaseEntity, SelectEntity):
         topic = self.entity_description.mqttTopicCommandTemplate.format(
             mqtt_root=self.mqtt_root,
             charge_template_id=self._charge_template_id,
+            chargepoint_id=self.device_ID,
         )
 
         _LOGGER.debug("MQTT topic: %s", topic)

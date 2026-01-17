@@ -299,7 +299,7 @@ class openwbSensor(OpenWBBaseEntity, SensorEntity):
             if "ip_adress" in self.entity_id:
                 device_registry.async_update_device(
                     device.id,
-                    configuration_url=f"http://{message.payload.strip('"')}",
+                    configuration_url=f"http://{message.payload.strip('\"')}"
                 )
             if "version" in self.entity_id:
                 device_registry.async_update_device(

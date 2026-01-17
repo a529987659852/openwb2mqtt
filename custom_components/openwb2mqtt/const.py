@@ -130,6 +130,20 @@ DATA_SCHEMA_API = vol.Schema(
     }
 )
 
+DATA_SCHEMA_OPTIONS_CP_MQTT = vol.Schema(
+    {
+        vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    SelectOptionDict(value="11", label="11 kW"),
+                    SelectOptionDict(value="22", label="22 kW"),
+                ],
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        ),
+    }
+)
+
 DATA_SCHEMA_OPTIONS_CP = vol.Schema(
     {
         vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
@@ -875,7 +889,7 @@ SELECTS_PER_CHARGEPOINT = [
         valueMapCurrentValue={
             "instant_charging": "Instant Charging",
             "instant": "Instant Charging",
-            # "scheduled_charging": "Scheduled Charging",
+            "scheduled_charging": "Target Charging",
             "pv_charging": "PV Charging",
             "eco_charging": "ECO Charging",
             "target": "Target Charging",
@@ -884,11 +898,11 @@ SELECTS_PER_CHARGEPOINT = [
             "pv": "PV Charging",
         },
         valueMapCommand={
-            "Instant Charging": "instant_charging",
+            "Instant Charging": "instant",
             # "Scheduled Charging": "scheduled_charging",
-            "PV Charging": "pv_charging",
-            "ECO Charging": "eco_charging",
-            "Standby": "standby",
+            "PV Charging": "pv",
+            "ECO Charging": "eco",
+            "Target Charging": "target",
             "Stop": "stop",
         },
         api_value_map_command={
@@ -898,7 +912,7 @@ SELECTS_PER_CHARGEPOINT = [
             "Target Charging": "target",
             "Stop": "stop",
         },
-        mqttTopicCommand="set/vehicle/template/charge_template/_chargeTemplateID_/chargemode/selected",
+        mqttTopicCommand="simpleAPI/set/chargepoint/_chargePointID_/chargemode",
         mqttTopicCurrentValue="get/connected_vehicle/config",
         options=[
             "Instant Charging",
@@ -919,10 +933,48 @@ SELECTS_PER_CHARGEPOINT = [
         entity_category=EntityCategory.CONFIG,
         name="Angeschlossenes Fahrzeug",
         translation_key="selector_connected_vehicle",
-        options=[],
         mqttTopicCommand="set/chargepoint/_chargePointID_/config/ev",
         mqttTopicCurrentValue="get/connected_vehicle/info",
-        mqttTopicOptions=[
+        valueMapCurrentValue={
+            0: "Vehicle 0",
+            1: "Vehicle 1",
+            2: "Vehicle 2",
+            3: "Vehicle 3",
+            4: "Vehicle 4",
+            5: "Vehicle 5",
+            6: "Vehicle 6",
+            7: "Vehicle 7",
+            8: "Vehicle 8",
+            9: "Vehicle 9",
+            10: "Vehicle 10",
+        },
+        valueMapCommand={
+            "Vehicle 0": "0",
+            "Vehicle 1": "1",
+            "Vehicle 2": "2",
+            "Vehicle 3": "3",
+            "Vehicle 4": "4",
+            "Vehicle 5": "5",
+            "Vehicle 6": "6",
+            "Vehicle 7": "7",
+            "Vehicle 8": "8",
+            "Vehicle 9": "9",
+            "Vehicle 10": "10",
+        },
+        options=[
+            "Vehicle 0",
+            "Vehicle 1",
+            "Vehicle 2",
+            "Vehicle 3",
+            "Vehicle 4",
+            "Vehicle 5",
+            "Vehicle 6",
+            "Vehicle 7",
+            "Vehicle 8",
+            "Vehicle 9",
+            "Vehicle 10",
+        ],
+        mqttTopicOptions=(
             "vehicle/0/name",
             "vehicle/1/name",
             "vehicle/2/name",
@@ -934,7 +986,7 @@ SELECTS_PER_CHARGEPOINT = [
             "vehicle/8/name",
             "vehicle/9/name",
             "vehicle/10/name",
-        ],
+        ),
         value_fn=lambda x: _safeJsonGet(x, "id"),
         api_value_fn=lambda x: x,
         entity_registry_enabled_default=False,
@@ -954,7 +1006,7 @@ NUMBERS_PER_CHARGEPOINT = [
         native_step=1.0,
         entity_category=EntityCategory.CONFIG,
         mqttTopicCommand="set/vehicle/_vehicleID_/soc_module/calculated_soc_state/manual_soc",
-        mqttTopicCurrentValue="get/connected_vehicle/soc",
+        mqttTopicCurrentValue="chargepoint/_chargePointID_/get/connected_vehicle/soc",
         mqttTopicChargeMode=None,
         entity_registry_enabled_default=True,
         # entity_registry_enabled_default=False,
@@ -970,11 +1022,11 @@ NUMBERS_PER_CHARGEPOINT = [
         device_class=NumberDeviceClass.CURRENT,
         icon="mdi:current-ac",
         native_min_value=6.0,
-        native_max_value=16.0,
+        native_max_value=32.0,
         native_step=1.0,
         entity_category=EntityCategory.CONFIG,
-        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/current",
+        mqttTopicTemplate="{mqtt_root}/chargepoint/{chargepoint_id}/set/charge_template",
+        mqttTopicCommandTemplate="{mqtt_root}/simpleAPI/set/chargepoint/{chargepoint_id}/chargecurrent",
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "current"
         ),
@@ -989,11 +1041,11 @@ NUMBERS_PER_CHARGEPOINT = [
         device_class=NumberDeviceClass.CURRENT,
         icon="mdi:current-ac",
         native_min_value=0.0,
-        native_max_value=16.0,
+        native_max_value=32.0,
         native_step=1.0,
         entity_category=EntityCategory.CONFIG,
-        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/pv_charging/min_current",
+        mqttTopicTemplate="{mqtt_root}/chargepoint/{chargepoint_id}/set/charge_template",
+        mqttTopicCommandTemplate="{mqtt_root}/simpleAPI/set/chargepoint/{chargepoint_id}/minimal_permanent_current",
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "pv_charging", "min_current"
         ),
@@ -1010,8 +1062,8 @@ NUMBERS_PER_CHARGEPOINT = [
         native_max_value=50,
         native_step=1,
         entity_category=EntityCategory.CONFIG,
-        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/amount",
+        mqttTopicTemplate="{mqtt_root}/chargepoint/{chargepoint_id}/set/charge_template",
+        mqttTopicCommandTemplate="{mqtt_root}/simpleAPI/set/instant_charging_limit_amount",
         convert_before_publish_fn=lambda x: x * 1000.0,
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "limit", "amount"
@@ -1033,8 +1085,8 @@ NUMBERS_PER_CHARGEPOINT = [
         native_max_value=100,
         native_step=5,
         entity_category=EntityCategory.CONFIG,
-        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/chargemode/instant_charging/limit/soc",
+        mqttTopicTemplate="{mqtt_root}/chargepoint/{chargepoint_id}/set/charge_template",
+        mqttTopicCommandTemplate="{mqtt_root}/simpleAPI/set/instant_charging_limit_soc",
         value_fn=lambda x: _safeNestedGet(
             x, "chargemode", "instant_charging", "limit", "soc"
         )
@@ -1055,8 +1107,8 @@ NUMBERS_PER_CHARGEPOINT = [
         native_max_value=100,
         native_step=1,
         entity_category=EntityCategory.CONFIG,
-        mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        mqttTopicCommandTemplate="{mqtt_root}/set/vehicle/template/charge_template/{charge_template_id}/et/max_price",
+        mqttTopicTemplate="{mqtt_root}/chargepoint/{chargepoint_id}/set/charge_template",
+        mqttTopicCommandTemplate="{mqtt_root}/simpleAPI/set/chargepoint/{chargepoint_id}/max_price_eco",
         value_fn=lambda x: _safeFloat(
             _safeNestedGet(x, "chargemode", "eco_charging", "max_price"),
             c=100000,
