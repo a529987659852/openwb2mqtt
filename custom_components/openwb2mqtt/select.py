@@ -287,6 +287,8 @@ class openwbSelect(OpenWBBaseEntity, SelectEntity):
             payload = message.payload.replace('"', "")
             vehicle_id = int(topic.split("/")[-2])
 
+            while len(self.entity_description.options) <= vehicle_id:
+                self.entity_description.options.append("")
             self.entity_description.options[vehicle_id] = payload
 
             if self.entity_description.valueMapCurrentValue is not None:
