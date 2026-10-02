@@ -19,6 +19,7 @@ from .const import (
     DATA_SCHEMA_API,
     DATA_SCHEMA_MQTT,
     DATA_SCHEMA_OPTIONS_CP,
+    DATA_SCHEMA_OPTIONS_CP_MQTT,
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
@@ -133,6 +134,7 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_chargepoint(self, user_input=None):
         """Handle the chargepoint step of the configuration."""
         errors = {}
+        comm_method = self.stored_user_input.get(COMMUNICATION_METHOD)
 
         if user_input is not None:
             combined_data = {**self.stored_user_input, **user_input}
@@ -150,11 +152,18 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
                 data=combined_data,
             )
 
-        return self.async_show_form(
-            step_id="chargepoint",
-            data_schema=DATA_SCHEMA_OPTIONS_CP,
-            errors=errors,
-        )
+        if comm_method == COMM_METHOD_MQTT:
+            return self.async_show_form(
+                step_id="chargepoint",
+                data_schema=DATA_SCHEMA_OPTIONS_CP_MQTT,
+                errors=errors,
+            )
+        else:
+            return self.async_show_form(
+                step_id="chargepoint",
+                data_schema=DATA_SCHEMA_OPTIONS_CP,
+                errors=errors,
+            )
 
     def _get_title(self, user_input: dict) -> str:
         """Get the title for the config entry."""
@@ -191,13 +200,20 @@ class OptionsFlowHandler(OptionsFlowWithReload):
         wallbox_power = self.config_entry.options.get(CONF_WALLBOX_POWER)
         suggested_values = {CONF_WALLBOX_POWER: wallbox_power}
         current_options_carlist = self.config_entry.options.get(CONF_VEHICLES, {})
+        comm_method = self.config_entry.data.get(COMMUNICATION_METHOD)
+
         if len(current_options_carlist) > 0:
             # Convert dict -> string for output
             current_options_carlist_str = _format_vehicles_dict(current_options_carlist)
             suggested_values[CONF_VEHICLES] = current_options_carlist_str
 
-        data_schema = self.add_suggested_values_to_schema(
-            DATA_SCHEMA_OPTIONS_CP, suggested_values
-        )
+        if comm_method == COMM_METHOD_MQTT:
+            data_schema = self.add_suggested_values_to_schema(
+                DATA_SCHEMA_OPTIONS_CP_MQTT, suggested_values
+            )
+        else:
+            data_schema = self.add_suggested_values_to_schema(
+                DATA_SCHEMA_OPTIONS_CP, suggested_values
+            )
 
         return self.async_show_form(step_id="init", data_schema=data_schema)
