@@ -1669,6 +1669,9 @@ SENSORS_PER_VEHICLE = [
         key="soc",
         name="Ladung",
         device_class=SensorDeviceClass.BATTERY,
+        # openWB publishes the JSON literal null when the vehicle reports nothing,
+        # which fails the numeric sensor check (ValueError) on every update.
+        value_fn=lambda x: _safeFloat(x),
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_registry_enabled_default=True,
@@ -1677,6 +1680,9 @@ SENSORS_PER_VEHICLE = [
     openwbSensorEntityDescription(
         key="range",
         name="Reichweite",
+        # openWB publishes the JSON literal null when the vehicle reports nothing,
+        # which fails the numeric sensor check (ValueError) on every update.
+        value_fn=lambda x: _safeFloat(x),
         device_class=None,
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.MEASUREMENT,
