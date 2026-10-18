@@ -580,7 +580,7 @@ class openwbDynamicSelect(OpenWBBaseEntity, SelectEntity):
         topic = self.entity_description.mqttTopicCommandTemplate.format(
             mqtt_root=self.mqtt_root,
             charge_template_id=self._charge_template_id,
-            chargepoint_id=self.device_ID,
+            chargepoint_id=self.deviceID,
         )
 
         _LOGGER.debug("MQTT topic: %s", topic)
