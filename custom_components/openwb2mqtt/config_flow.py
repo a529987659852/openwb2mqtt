@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
-import voluptuous as vol
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlowWithReload
-from homeassistant.core import callback
+from .api_client import (
+    OpenWB2MqttApiClient,
+    OpenWB2MqttApiClientCommunicationError,
+    OpenWB2MqttApiClientError,
+)
 
 # Import global values.
 from .const import (
     API_PREFIX,
+    API_URL,
     COMM_METHOD_HTTP,
     COMM_METHOD_MQTT,
     COMMUNICATION_METHOD,
@@ -20,6 +31,7 @@ from .const import (
     DATA_SCHEMA_MQTT,
     DATA_SCHEMA_OPTIONS_CP,
     DATA_SCHEMA_OPTIONS_CP_MQTT,
+    DATA_SCHEMA_RECONFIGURE_API,
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
@@ -46,6 +58,22 @@ def _parse_vehicles_string(vehicles_str: str) -> dict[str, str]:
         return vehicles
     except IndexError as exc:
         raise ValueError("Invalid vehicle format. Expected ID=Name.") from exc
+
+
+async def _async_validate_api_url(hass: HomeAssistant, api_url: str) -> None:
+    """Check that the openWB simpleAPI answers under the given URL.
+
+    Raises OpenWB2MqttApiClientCommunicationError if the host is unreachable or
+    answers with an HTTP error, OpenWB2MqttApiClientError for anything else
+    (e.g. the response is not JSON, i.e. the URL does not point to the simpleAPI).
+    """
+    client = OpenWB2MqttApiClient(
+        api_url=api_url,
+        token=None,
+        session=async_get_clientsession(hass),
+    )
+    # Lightweight query that is supported regardless of the configured device type
+    await client.async_get_data("?get_lastlivevaluesjson&raw=true")
 
 
 def _format_vehicles_dict(vehicles_dict: dict[str, str]) -> str:
@@ -164,6 +192,49 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
                 data_schema=DATA_SCHEMA_OPTIONS_CP,
                 errors=errors,
             )
+
+    async def async_step_reconfigure(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration of an existing entry.
+
+        Only connection parameters can be changed here. API prefix / MQTT root
+        topic, device type and device id make up the unique_id of the entry
+        (and thus of all entities); changing them would orphan the existing
+        entities, so a new entry is required for that.
+        """
+        entry = self._get_reconfigure_entry()
+
+        # For MQTT, the connection itself is handled by the HA MQTT integration;
+        # the only remaining fields (root topic, device type/id) define the identity.
+        if entry.data.get(COMMUNICATION_METHOD) != COMM_METHOD_HTTP:
+            return self.async_abort(reason="reconfigure_not_supported_mqtt")
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            api_url = user_input[API_URL].strip()
+            try:
+                await _async_validate_api_url(self.hass, api_url)
+            except OpenWB2MqttApiClientCommunicationError:
+                errors["base"] = "cannot_connect"
+            except OpenWB2MqttApiClientError:
+                errors["base"] = "invalid_api_response"
+            else:
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={API_URL: api_url},
+                )
+
+        suggested_values = user_input or {API_URL: entry.data.get(API_URL, "")}
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                DATA_SCHEMA_RECONFIGURE_API, suggested_values
+            ),
+            errors=errors,
+            description_placeholders={"entry_title": entry.title},
+        )
 
     def _get_title(self, user_input: dict) -> str:
         """Get the title for the config entry."""

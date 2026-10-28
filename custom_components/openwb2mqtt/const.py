@@ -130,6 +130,15 @@ DATA_SCHEMA_API = vol.Schema(
     }
 )
 
+# Reconfigure (HTTP API only): only connection parameters that do not affect the
+# identity of the config entry (prefix, device type and device id are part of
+# the unique_id and therefore of all entity unique_ids).
+DATA_SCHEMA_RECONFIGURE_API = vol.Schema(
+    {
+        vol.Required(API_URL): cv.string,
+    }
+)
+
 DATA_SCHEMA_OPTIONS_CP_MQTT = vol.Schema(
     {
         vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(

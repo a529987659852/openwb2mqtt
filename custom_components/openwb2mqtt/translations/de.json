@@ -7,7 +7,9 @@
             "counter_already_configured": "Dieser Zähler wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
             "pv_already_configured": "Diese PV-Anlage wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
             "vehicle_already_configured": "Dieses Fahrzeug wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
-            "chargepoint_already_configured": "Dieser Ladepunkt wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein."
+            "chargepoint_already_configured": "Dieser Ladepunkt wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
+            "reconfigure_successful": "Die API-URL wurde aktualisiert und die Integration neu geladen.",
+            "reconfigure_not_supported_mqtt": "Bei MQTT gibt es nichts neu zu konfigurieren: Die Verbindung zum Broker wird über die MQTT-Integration von Home Assistant verwaltet. MQTT-Wurzeltopic, Gerätetyp und Geräte-ID bestimmen die IDs aller Entitäten – um diese zu ändern, legen Sie bitte einen neuen Eintrag an."
         },
         "step": {
             "user": {
@@ -44,7 +46,21 @@
                 },
                 "description": "Geben Sie die max. Ladeleistung Ihrer Wallbox (Pflichtfeld) und die Liste der Fahrzeuge (optional) als kommagetrennte Liste ein.\nGeben Sie die Fahrzeugliste im folgenden Format ein:\n\n\tFahrzeug-ID=Fahrzeugname,Fahrzeug-ID=Fahrzeugname\n\nAchten Sie darauf, dass die Fahrzeugnamen *exakt* den in der openWB angegebenen Werten entsprechen. Nur dann werden die vorhandenen Fahrzeuge korrekt in der Fahrzeugauswahlliste dargestellt.\nDie Fahrzeug-ID finden Sie auf dem Status-Tab der openWB.",
                 "title": "Ladepunkteinstellungen"
+            },
+            "reconfigure": {
+                "data": {
+                    "api_url": "API URL"
+                },
+                "data_description": {
+                    "api_url": "Vollständige URL zur simpleAPI, z. B. http://192.168.0.68/openWB/simpleAPI/simpleapi.php"
+                },
+                "description": "Passen Sie die Verbindung für **{entry_title}** an, z. B. nach einem Wechsel der IP-Adresse.\nAPI-Präfix, Gerätetyp und Geräte-ID können nicht geändert werden, da sie die IDs aller Entitäten bestimmen.",
+                "title": "API-Verbindung ändern"
             }
+        },
+        "error": {
+            "cannot_connect": "Die openWB ist unter dieser URL nicht erreichbar (Timeout oder HTTP-Fehler).",
+            "invalid_api_response": "Unter dieser URL antwortet keine openWB simpleAPI (keine gültige JSON-Antwort)."
         }
     },
     "options": {
