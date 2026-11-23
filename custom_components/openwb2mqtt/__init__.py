@@ -4,6 +4,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api_client import OpenWB2MqttApiClient
@@ -18,14 +19,39 @@ from .const import (
     DEVICETYPE,
     DOMAIN,
     PLATFORMS,
+    REMOVED_DEVICE_TYPES,
 )
 from .coordinator import OpenWB2MqttDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
+def _get_issue_id(entry: ConfigEntry) -> str:
+    """Return the repair issue ID for an entry with a removed device type."""
+    return f"unsupported_device_type_{entry.entry_id}"
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the openWB2 MQTT integration from a config entry."""
+    device_type = entry.data.get(DEVICETYPE)
+    if device_type in REMOVED_DEVICE_TYPES:
+        # This device type is no longer supported. Show a repair issue and
+        # create no entities. No config_entry_id= kwarg: it only exists
+        # since HA 2026.11 (TypeError on older HA).
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            _get_issue_id(entry),
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="unsupported_device_type",
+            translation_placeholders={
+                "title": entry.title,
+                "device_type": device_type,
+            },
+        )
+        return True
+
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
 
@@ -54,6 +80,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    if entry.data.get(DEVICETYPE) in REMOVED_DEVICE_TYPES:
+        # Nothing was set up for removed device types.
+        return True
+
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
@@ -61,7 +91,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle options update."""
-    # This is all that's needed. Home Assistant handles the reload.
-    await hass.config_entries.async_reload(entry.entry_id)
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete the repair issue when the entry is removed."""
+    ir.async_delete_issue(hass, DOMAIN, _get_issue_id(entry))

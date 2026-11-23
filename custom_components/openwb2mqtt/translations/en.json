@@ -1,0 +1,94 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "This integration is already configured. Enter a different MQTT root topic/prefix, select a different device type or enter a different device ID.",
+            "controller_already_configured": "This wallbox is already configured. Enter a different MQTT root topic/prefix.",
+            "batterie_already_configured": "This battery is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
+            "counter_already_configured": "This counter is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
+            "pv_already_configured": "This PV system is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
+            "vehicle_already_configured": "This vehicle is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
+            "chargepoint_already_configured": "This chargepoint is already configured. Enter a different MQTT root topic/prefix or a different device ID."
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "communication_method": "Interface"
+                },
+                "description": "Select the communication interface.",
+                "title": "openWB (version 2)"
+            },
+            "details_api": {
+                "data": {
+                    "api_prefix": "API prefix",
+                    "api_url": "API URL",
+                    "api_token": "API token",
+                    "DEVICETYPE": "Device type",
+                    "DEVICEID": "Device ID in openWB (-> status tab)"
+                },
+                "description": "Enter a prefix that uniquely identifies the openWB.\n*If you migrate from MQTT to the API interface, enter the MQTT root topic here and the integration creates the sensors etc. with the same IDs.*\n\nAdjust the IP address and select the device type.\nFor the device types counter, chargepoint, PV system and battery, the device ID is also required. You can find it on the status tab of your openWB.",
+                "title": "API settings for openWB"
+            },
+            "details_mqtt": {
+                "data": {
+                    "mqttroot": "MQTT root topic",
+                    "DEVICETYPE": "Device type",
+                    "DEVICEID": "Device ID in openWB (-> status tab)"
+                },
+                "description": "Enter the MQTT root topic under which the openWB can be reached on your MQTT server and select the device type.\nFor the device types counter, chargepoint, PV system and battery, the device ID is also required. You can find it on the status tab of your openWB.\nFor the device type wallbox, enter the device ID 0.",
+                "title": "MQTT settings for openWB"
+            },
+            "chargepoint": {
+                "data": {
+                    "wallbox_power": "Max. charging power",
+                    "vehicles": "Vehicle list (ID=vehicle name, comma-separated)"
+                },
+                "description": "Enter the max. charging power of your wallbox (required) and the list of vehicles (optional) as a comma-separated list.\nEnter the vehicle list in the following format:\n\n\tvehicle ID=vehicle name,vehicle ID=vehicle name\n\nMake sure that the vehicle names match the values configured in the openWB *exactly*. Only then are the vehicles shown correctly in the vehicle selection list.\nYou can find the vehicle ID on the status tab of the openWB.",
+                "title": "Chargepoint settings"
+            }
+        }
+    },
+    "options": {
+        "abort": {
+            "no_conf_options_supported": "This device type does not support options."
+        },
+        "step": {
+            "init": {
+                "data": {
+                    "wallbox_power": "Max. charging power",
+                    "vehicles": "Vehicle list (ID=vehicle name, comma-separated)"
+                },
+                "description": "Enter the max. charging power of your wallbox (required) and the list of vehicles (optional) as a comma-separated list.\nEnter the vehicle list in the following format:\n\n\tvehicle ID=vehicle name,vehicle ID=vehicle name\n\nMake sure that the vehicle names match the values configured in the openWB *exactly*. Only then are the vehicles shown correctly in the vehicle selection list.\nYou can find the vehicle ID on the status tab of the openWB.",
+                "title": "Chargepoint settings"
+            }
+        }
+    },
+    "selector": {
+        "config_selector_devicetype": {
+            "options": {
+                "controller": "Wallbox",
+                "counter": "Counter",
+                "chargepoint": "Chargepoint",
+                "pv": "PV system",
+                "bat": "Battery",
+                "vehicle": "Vehicle"
+            }
+        }
+    },
+    "entity": {
+        "lock": {
+            "manual_lock": {
+                "name": "Manual lock",
+                "state": {
+                    "locked": "Locked",
+                    "unlocked": "Unlocked"
+                }
+            }
+        }
+    },
+    "issues": {
+        "unsupported_device_type": {
+            "title": "Device type {device_type} is no longer supported",
+            "description": "The entry \"{title}\" uses the device type {device_type}. This device type is no longer supported by the integration. No entities are created for this entry any more.\n\nPlease delete the entry \"{title}\". You can build totals (for example the total power of all chargepoints) with Home Assistant helpers, such as the \"Sensor group\" helper or a template sensor."
+        }
+    }
+}

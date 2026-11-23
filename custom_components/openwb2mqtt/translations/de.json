@@ -124,5 +124,11 @@
                 }
             }
 		}
+    },
+    "issues": {
+        "unsupported_device_type": {
+            "title": "Gerätetyp {device_type} wird nicht mehr unterstützt",
+            "description": "Der Eintrag \"{title}\" verwendet den Gerätetyp {device_type}. Dieser Gerätetyp wird von der Integration nicht mehr unterstützt. Für diesen Eintrag werden keine Entitäten mehr erzeugt.\n\nBitte löschen Sie den Eintrag \"{title}\". Summen (zum Beispiel die Gesamtleistung aller Ladepunkte) können Sie mit Home-Assistant-Helfern bilden, etwa mit dem Helfer \"Sensorgruppe\" oder einem Template-Sensor."
+        }
     }
 }
