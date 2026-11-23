@@ -1,34 +1,54 @@
 [
   [
-    "openWB/bat/1/get/daily_exported",
-    "6816.34"
-  ],
-  [
-    "openWB/bat/1/get/daily_imported",
-    "7486.89"
-  ],
-  [
-    "openWB/bat/1/get/exported",
-    "5913906.56"
-  ],
-  [
-    "openWB/bat/1/get/fault_state",
+    "openWB/simpleAPI/bat/1/config/max_power",
     "0"
   ],
   [
-    "openWB/bat/1/get/fault_str",
+    "openWB/simpleAPI/bat/1/get/currents/1",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/currents/2",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/currents/3",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/daily_exported",
+    "18621.42"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/daily_imported",
+    "12797.58"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/exported",
+    "5925711.85"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/fault_state",
+    "0"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/fault_str",
     "\"Kein Fehler.\""
   ],
   [
-    "openWB/bat/1/get/imported",
-    "6078357.6"
+    "openWB/simpleAPI/bat/1/get/imported",
+    "6083607.39"
   ],
   [
-    "openWB/bat/1/get/power",
-    "3140"
+    "openWB/simpleAPI/bat/1/get/power",
+    "-3"
   ],
   [
-    "openWB/bat/1/get/soc",
-    "28"
+    "openWB/simpleAPI/bat/1/get/power_limit_controllable",
+    "True"
+  ],
+  [
+    "openWB/simpleAPI/bat/1/get/soc",
+    "8"
   ]
 ]

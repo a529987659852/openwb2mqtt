@@ -1,114 +1,274 @@
 [
   [
-    "openWB/chargepoint/6/get/connected_vehicle/config",
-    "{\"charge_template\": 0, \"chargemode\": \"stop\"}"
+    "openWB/simpleAPI/chargepoint/6/charge_state",
+    "True"
   ],
   [
-    "openWB/vehicle/0/name",
-    "\"Standard-Fahrzeug\""
+    "openWB/simpleAPI/chargepoint/6/chargemode",
+    "instant_charging"
   ],
   [
-    "openWB/chargepoint/6/config",
-    "{\"name\": \"Interne openWB 6\"}"
-  ],
-  [
-    "openWB/chargepoint/6/get/charge_state",
-    "false"
-  ],
-  [
-    "openWB/chargepoint/6/get/plug_state",
-    "false"
-  ],
-  [
-    "openWB/chargepoint/6/get/connected_vehicle/info",
-    "{\"id\": 0, \"name\": \"Standard-Fahrzeug\"}"
-  ],
-  [
-    "openWB/chargepoint/6/get/connected_vehicle/soc",
-    "{\"soc\": 17, \"range\": 75, \"range_charged\": 0, \"timestamp\": 1795395424.889}"
-  ],
-  [
-    "openWB/chargepoint/6/get/currents",
-    "[0.0, 0.0, 0.0]"
-  ],
-  [
-    "openWB/chargepoint/6/get/daily_exported",
+    "openWB/simpleAPI/chargepoint/6/charging_current",
     "0"
   ],
   [
-    "openWB/chargepoint/6/get/daily_imported",
-    "4723.03"
-  ],
-  [
-    "openWB/chargepoint/6/get/evse_current",
+    "openWB/simpleAPI/chargepoint/6/charging_power",
     "0"
   ],
   [
-    "openWB/chargepoint/6/get/exported",
+    "openWB/simpleAPI/chargepoint/6/charging_voltage",
     "0"
   ],
   [
-    "openWB/chargepoint/6/get/fault_state",
+    "openWB/simpleAPI/chargepoint/6/config/auto_phase_switch_hw",
+    "True"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/config/configuration/duo_num",
     "0"
   ],
   [
-    "openWB/chargepoint/6/get/fault_str",
-    "\"Kein Fehler.\""
+    "openWB/simpleAPI/chargepoint/6/config/configuration/ip_address",
+    "localhost"
   ],
   [
-    "openWB/chargepoint/6/get/frequency",
-    "49.92"
+    "openWB/simpleAPI/chargepoint/6/config/connected_phases",
+    "3"
   ],
   [
-    "openWB/chargepoint/6/get/imported",
-    "890836.98"
+    "openWB/simpleAPI/chargepoint/6/config/control_pilot_interruption_hw",
+    "True"
   ],
   [
-    "openWB/chargepoint/6/get/phases_in_use",
+    "openWB/simpleAPI/chargepoint/6/config/ev",
+    "0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/config/id",
+    "6"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/config/name",
+    "Interne openWB 6"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/config/ocpp_chargebox_id",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/config/phase_1",
     "1"
   ],
   [
-    "openWB/chargepoint/6/get/power",
+    "openWB/simpleAPI/chargepoint/6/config/template",
     "0"
   ],
   [
-    "openWB/chargepoint/6/get/power_factors",
-    "[1.0, 1.0, 1.0]"
+    "openWB/simpleAPI/chargepoint/6/config/type",
+    "internal_openwb"
   ],
   [
-    "openWB/chargepoint/6/get/powers",
-    "[0.0, 0.0, 0.0]"
+    "openWB/simpleAPI/chargepoint/6/connected_vehicle/soc/soc",
+    "0"
   ],
   [
-    "openWB/chargepoint/6/get/rfid",
+    "openWB/simpleAPI/chargepoint/6/currents/1",
+    "9.52"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/currents/2",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/currents/3",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/daily_exported",
+    "0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/daily_imported",
+    "32588.02"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/error_timestamp",
     "null"
   ],
   [
-    "openWB/chargepoint/6/get/state_str",
-    "\"Keine Ladung, da kein Auto angesteckt ist.\""
+    "openWB/simpleAPI/chargepoint/6/evse_current",
+    "10"
   ],
   [
-    "openWB/chargepoint/6/get/vehicle_id",
+    "openWB/simpleAPI/chargepoint/6/evse_signaling",
     "null"
   ],
   [
-    "openWB/chargepoint/6/get/voltages",
-    "[234.75, 236.64, 236.88]"
+    "openWB/simpleAPI/chargepoint/6/exported",
+    "0"
   ],
   [
-    "openWB/chargepoint/6/set/manual_lock",
-    "false"
+    "openWB/simpleAPI/chargepoint/6/fault_state",
+    "0"
   ],
   [
-    "openWB/chargepoint/6/set/charge_template",
-    "{\"chargemode\": {\"instant_charging\": {\"current\": 10, \"limit\": {\"selected\": \"amount\", \"amount\": 10000, \"soc\": 50}}, \"pv_charging\": {\"min_current\": 0}, \"eco_charging\": {\"max_price\": 0.00035}}}"
+    "openWB/simpleAPI/chargepoint/6/fault_str",
+    "\"Kein Fehler.\""
   ],
   [
-    "openWB/chargepoint/6/chargepoint/_chargePointID_/get/connected_vehicle/soc",
-    "{\"soc\": 17, \"range\": 75, \"range_charged\": 0, \"timestamp\": 1795395424.889}"
+    "openWB/simpleAPI/chargepoint/6/frequency",
+    "49.98"
   ],
   [
-    "openWB/vehicle/template/charge_template/0",
-    "{\"chargemode\": {\"instant_charging\": {\"current\": 10, \"limit\": {\"selected\": \"amount\", \"amount\": 10000, \"soc\": 50}}, \"pv_charging\": {\"min_current\": 0}, \"eco_charging\": {\"max_price\": 0.00035}}}"
+    "openWB/simpleAPI/chargepoint/6/imported",
+    "918868.96"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/instant_charging_limit",
+    "none"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/instant_charging_limit_amount",
+    "10.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/instant_charging_limit_soc",
+    "50"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/manual_lock",
+    "False"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/max_charge_power",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/max_discharge_power",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/max_price_eco",
+    "0.00035"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/minimal_permanent_current",
+    "0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/minimal_pv_soc",
+    "0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/phases_in_use",
+    "1"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/plug_state",
+    "True"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/power",
+    "2184.25"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/power_factors/1",
+    "0.99"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/power_factors/2",
+    "1.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/power_factors/3",
+    "1.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/powers/1",
+    "2184.25"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/powers/2",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/powers/3",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/pro_soc",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/pro_soc_timestamp",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/rfid",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/rfid_timestamp",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/serial_number",
+    "\"241067383\""
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/soc/fault_state",
+    "0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/soc/fault_str",
+    "Kein Fehler."
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/soc/range",
+    "210"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/soc/range_charged",
+    "50"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/soc/range_unit",
+    "km"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/soc/soc",
+    "48"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/soc/timestamp",
+    "1795466373.929"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/state_str",
+    "\"Fahrzeug l\\u00e4dt.\""
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/vehicle_id",
+    "null"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/vehicle_name",
+    "Standard-Fahrzeug"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/version",
+    "\"2.2.3\""
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/voltages/1",
+    "231.2"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/voltages/2",
+    "233.22"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/voltages/3",
+    "232.7"
   ]
 ]

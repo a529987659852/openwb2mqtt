@@ -1,50 +1,102 @@
 [
   [
-    "openWB/counter/0/get/currents",
-    "[15.1, -9.7, -9.5]"
+    "openWB/simpleAPI/counter/0/config/max_currents/1",
+    "35"
   ],
   [
-    "openWB/counter/0/get/daily_exported",
-    "5357.091"
+    "openWB/simpleAPI/counter/0/config/max_currents/2",
+    "35"
   ],
   [
-    "openWB/counter/0/get/daily_imported",
-    "1568.854"
+    "openWB/simpleAPI/counter/0/config/max_currents/3",
+    "35"
   ],
   [
-    "openWB/counter/0/get/exported",
-    "18178837.94115293"
+    "openWB/simpleAPI/counter/0/config/max_power_errorcase",
+    "11000"
   ],
   [
-    "openWB/counter/0/get/fault_state",
+    "openWB/simpleAPI/counter/0/config/max_total_power",
+    "24000"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/currents/1",
+    "10.5"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/currents/2",
+    "1.0"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/currents/3",
+    "0.9"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/daily_exported",
+    "8418.035"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/daily_imported",
+    "14876.507"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/exported",
+    "18181877.341573242"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/fault_state",
     "0"
   ],
   [
-    "openWB/counter/0/get/fault_str",
+    "openWB/simpleAPI/counter/0/get/fault_str",
     "\"Kein Fehler.\""
   ],
   [
-    "openWB/counter/0/get/frequency",
+    "openWB/simpleAPI/counter/0/get/frequency",
     "50"
   ],
   [
-    "openWB/counter/0/get/imported",
-    "3585123.221144811"
+    "openWB/simpleAPI/counter/0/get/imported",
+    "3598628.1030333154"
   ],
   [
-    "openWB/counter/0/get/power",
-    "-954"
+    "openWB/simpleAPI/counter/0/get/power",
+    "2612"
   ],
   [
-    "openWB/counter/0/get/power_factors",
-    "[0.0, 0.0, 0.0]"
+    "openWB/simpleAPI/counter/0/get/power_factors/1",
+    "0.0"
   ],
   [
-    "openWB/counter/0/get/powers",
-    "[3427, -2179, -2202]"
+    "openWB/simpleAPI/counter/0/get/power_factors/2",
+    "0.0"
   ],
   [
-    "openWB/counter/0/get/voltages",
-    "[234.9, 236.7, 237.0]"
+    "openWB/simpleAPI/counter/0/get/power_factors/3",
+    "0.0"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/powers/1",
+    "2364"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/powers/2",
+    "86"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/powers/3",
+    "162"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/voltages/1",
+    "231.6"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/voltages/2",
+    "232.4"
+  ],
+  [
+    "openWB/simpleAPI/counter/0/get/voltages/3",
+    "232.2"
   ]
 ]
