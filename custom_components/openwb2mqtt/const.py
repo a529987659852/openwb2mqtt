@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import datetime
 import json
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import voluptuous as vol
@@ -24,6 +25,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.components.switch import SwitchEntityDescription
 from homeassistant.const import (
+    CURRENCY_EURO,
     PERCENTAGE,
     Platform,
     UnitOfElectricCurrent,
@@ -42,6 +44,9 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+
 # Platform.SWITCH,
 PLATFORMS = [
     Platform.BINARY_SENSOR,
@@ -57,7 +62,7 @@ COMMUNICATION_METHOD = "communication_method"
 COMM_METHOD_MQTT = "MQTT"
 COMM_METHOD_HTTP = "HTTP API"
 API_URL = "api_url"
-API_TOKEN = "api_token - leave empty for now"
+API_TOKEN = "api_token"
 CONF_WALLBOX_POWER = "wallbox_power"
 MQTT_ROOT_TOPIC = "mqttroot"
 MQTT_ROOT_TOPIC_DEFAULT = "openWB"
@@ -69,6 +74,57 @@ CONF_VEHICLE_NAME = "vehicle_name"
 CONF_VEHICLE_ID = "vehicle_id"
 MANUFACTURER = "openWB"
 MODEL = "openWB"
+# Prefix of all unique IDs and entity IDs of a config entry (stored by the 1.2 migration)
+ID_PREFIX = "id_prefix"
+
+# Device types of the simpleAPI
+SUPPORTED_DEVICE_TYPES = ["chargepoint", "counter", "bat", "pv"]
+# Device types that older versions of this integration supported
+REMOVED_DEVICE_TYPES = ["controller", "vehicle"]
+# Readable names, also used in the legacy MQTT device identifiers
+DEVICE_TYPE_NAMES = {
+    "chargepoint": "Chargepoint",
+    "counter": "Counter",
+    "bat": "Battery",
+    "pv": "PV",
+}
+
+# HTTP API (simpleAPI)
+HTTP_UPDATE_INTERVAL = 15  # seconds
+# Parameter that reads all values of one device, per device type
+HTTP_READ_PARAMETER = {
+    "chargepoint": "get_chargepoint_all",
+    "counter": "get_counter",
+    "bat": "battery",
+    "pv": "pv",
+}
+# The answer contains the key f"{prefix}_{device_id}", per device type
+HTTP_RESPONSE_PREFIX = {
+    "chargepoint": "chargepoint",
+    "counter": "counter",
+    "bat": "battery",
+    "pv": "pv",
+}
+# HTTP key -> MQTT topic name, so that both transports use the same value keys
+HTTP_KEY_RENAMES = {
+    "chargepoint": {
+        "connected_vehicle_name": "vehicle_name",
+        "config_name": "config/name",  # Spec unclear: not in the HTTP spec, seen on 2.2.3
+        "soc": "soc/soc",
+        "soc_timestamp": "soc/timestamp",
+        "range_charged": "soc/range_charged",
+        "pv_charging_min_current": "minimal_permanent_current",
+        "instant_charging_amount": "instant_charging_limit_amount",
+        "instant_charging_soc": "instant_charging_limit_soc",
+        "pv_charging_amount": "pv_charging_limit_amount",  # Spec unclear: not delivered by 2.2.3
+        "pv_charging_soc": "pv_charging_limit_soc",  # Spec unclear: not delivered by 2.2.3
+    },
+}
+# HTTP delivers these values in Wh, MQTT in kWh
+HTTP_WH_KEYS = ["instant_charging_limit_amount", "pv_charging_limit_amount"]
+# HTTP delivers these values in ct/kWh, the entities show EUR/kWh
+HTTP_CENT_KEYS = ["max_price_eco"]
+PRICE_UNIT = f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}"
 
 # Data schema required by configuration flow
 DATA_SCHEMA = vol.Schema(
@@ -320,6 +376,126 @@ def _extractTimestamp(x: str) -> datetime.datetime | None:
         return datetime.datetime.fromtimestamp(float(x), tz=ZoneInfo("UTC"))
     except (ValueError, TypeError):
         return None
+
+
+def parse_mqtt_payload(payload: str) -> Any:
+    """Turn a simpleAPI MQTT payload into a Python value.
+
+    The payloads are mixed: JSON-quoted strings, bare strings,
+    Python-style booleans (True/False) and a bare null.
+    """
+    # payload is a str because we subscribe with encoding="utf-8" (the default)
+    text = payload.strip()
+    if text in ("True", "true"):
+        return True
+    if text in ("False", "false"):
+        return False
+    if text in ("None", "null", ""):
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
+def flatten_api_data(data: dict[str, Any]) -> dict[str, Any]:
+    """[a, b] -> key/1, key/2 and {"x": 1} -> key/x (same keys as the MQTT topics)."""
+    flat: dict[str, Any] = {}
+    for key, value in data.items():
+        if isinstance(value, list):
+            for index, item in enumerate(value, start=1):
+                flat[f"{key}/{index}"] = item
+        elif isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                flat[f"{key}/{sub_key}"] = sub_value
+        else:
+            flat[key] = value
+    return flat
+
+
+def normalize_http_data(data: dict[str, Any], device_type: str) -> dict[str, Any]:
+    """Bring the values of one HTTP device into the same shape as the MQTT values."""
+    renames = HTTP_KEY_RENAMES.get(device_type, {})
+    normalized: dict[str, Any] = {}
+    for key, value in flatten_api_data(data).items():
+        # HTTP strings are JSON-encoded twice ("\"Kein Fehler.\"", "null"),
+        # so remove one JSON layer
+        if isinstance(value, str):
+            value = parse_mqtt_payload(value)
+        normalized[renames.get(key, key)] = value
+    # HTTP returns these amounts in Wh, MQTT in kWh
+    for key in HTTP_WH_KEYS:
+        if key in normalized:
+            normalized[key] = _kwh_from_wh(normalized[key])
+    # HTTP returns these prices in ct/kWh, the entities show EUR/kWh
+    for key in HTTP_CENT_KEYS:
+        if key in normalized:
+            price = _safeFloat(normalized[key], 100)
+            if price is not None:
+                price = round(price, 4)
+            normalized[key] = price
+    return normalized
+
+
+def format_command_value(value: str | float | bool, for_http: bool) -> str:
+    """Turn a value into the text that the openWB expects in a command."""
+    if isinstance(value, bool):  # bool first: bool is a subclass of int
+        if for_http:
+            return "1" if value else "0"
+        return "true" if value else "false"
+    if isinstance(value, float):
+        value = round(value, 2)  # never send 0.30000000000000004
+        if value.is_integer():
+            return str(int(value))  # "16" instead of "16.0"
+    return str(value)
+
+
+def _kwh_from_wh(value: Any) -> float | None:
+    """Convert Wh to kWh."""
+    return _safeFloat(value, 1000)
+
+
+def _shorten_text(value: Any) -> str:
+    """Remove quotes and a trailing dot and cut the text to 255 characters."""
+    if value is None:
+        return ""
+    return str(value).strip('"').strip(".")[0:255]
+
+
+def _to_bool(value: Any) -> bool | None:
+    """Turn True/False, "true"/"on", 1/0 and similar into a bool."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in ("true", "on"):
+            return True
+        if text in ("false", "off"):
+            return False
+    try:
+        return bool(int(value))
+    except (ValueError, TypeError):
+        return None
+
+
+def max_current_for_wallbox_power(power: str | None) -> int:
+    """Maximum charging current in A for the configured wallbox power."""
+    if power == "11":
+        return 16
+    return 32
+
+
+def get_id_prefix(entry: ConfigEntry) -> str:
+    """Prefix for unique_id/entity_id. Stored by the 1.2 migration."""
+    if ID_PREFIX in entry.data:
+        return entry.data[ID_PREFIX]
+    # Same rule as before minor version 2: HTTP used the title, MQTT the unique_id.
+    # (Legacy MQTT with unique_id None produced the prefix "None"; such entries
+    #  cannot be created by the config flow, so we fall back to the title.)
+    communication_method = entry.data.get(COMMUNICATION_METHOD, COMM_METHOD_MQTT)
+    if communication_method == COMM_METHOD_HTTP or entry.unique_id is None:
+        return entry.title
+    return entry.unique_id
 
 
 # @dataclass
