@@ -1,9 +1,10 @@
 {
   "domain": "openwb2mqtt",
   "name": "openWB2 over MQTT or API ",
+  "after_dependencies": ["mqtt"],
   "codeowners": ["@a529987659852"],
   "config_flow": true,
-  "dependencies": ["mqtt"],
+  "dependencies": [],
   "documentation": "https://github.com/a529987659852/openwb2mqtt",
   "integration_type": "device",
   "iot_class": "local_polling",

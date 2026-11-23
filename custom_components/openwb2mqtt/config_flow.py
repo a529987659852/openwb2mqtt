@@ -2,14 +2,30 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlowWithReload
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
 from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from .api_client import (
+    OpenWB2MqttApiClient,
+    OpenWB2MqttApiClientCommunicationError,
+    OpenWB2MqttApiClientError,
+)
 
 # Import global values.
 from .const import (
     API_PREFIX,
+    API_TOKEN,
+    API_URL,
     COMM_METHOD_HTTP,
     COMM_METHOD_MQTT,
     COMMUNICATION_METHOD,
@@ -23,13 +39,14 @@ from .const import (
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
+    HTTP_RESPONSE_PREFIX,
     ID_PREFIX,
     MQTT_ROOT_TOPIC,
     MQTT_ROOT_TOPIC_DEFAULT,
 )
 
 
-def _parse_vehicles_string(vehicles_str: str) -> dict[str, str]:
+def _parse_vehicles_string(vehicles_str: str | None) -> dict[str, str]:
     """Parse a comma-separated string of ID=Name pairs into a dictionary."""
     if not vehicles_str:
         return {}
@@ -69,49 +86,105 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
     MINOR_VERSION = 2
 
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self.stored_user_input: dict[str, Any] = {}
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlowHandler:
         """Get the options flow for this handler."""
         return OptionsFlowHandler()
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the user step."""
         if user_input is not None:
             self.stored_user_input = user_input
             comm_method = user_input[COMMUNICATION_METHOD]
             if comm_method == COMM_METHOD_HTTP:
                 return await self.async_step_details_api()
-            else:
-                return await self.async_step_details_mqtt()
+            return await self.async_step_details_mqtt()
 
         return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
 
-    async def async_step_details_api(self, user_input=None):
+    async def async_step_details_api(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the details step of the configuration for API communication."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            error = await self._async_check_api(user_input)
+            if error is not None:
+                errors["base"] = error
+
         return await self._async_step_details(
             user_input,
             "details_api",
             DATA_SCHEMA_API,
-            {"api_url": "http://192.168.0.68/openWB/simpleAPI/simpleapi.php"},
+            {API_URL: "http://192.168.0.68/openWB/simpleAPI/simpleapi.php"},
+            errors,
         )
 
-    async def async_step_details_mqtt(self, user_input=None):
+    async def async_step_details_mqtt(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the details step of the configuration for MQTT communication."""
+        if not self.hass.config_entries.async_entries("mqtt"):
+            return self.async_abort(reason="mqtt_not_configured")
+
         return await self._async_step_details(
             user_input,
             "details_mqtt",
             DATA_SCHEMA_MQTT,
             {MQTT_ROOT_TOPIC: MQTT_ROOT_TOPIC_DEFAULT},
+            {},
         )
 
-    async def _async_step_details(
-        self, user_input, step_id, data_schema, suggested_values
-    ):
-        """Handle the details step of the configuration."""
-        errors = {}
+    async def _async_check_api(self, user_input: dict[str, Any]) -> str | None:
+        """Check the HTTP API and the device ID. Return an error key or None.
 
-        if user_input is not None:
+        The check is tolerant: only a failed connection or a device ID that
+        is clearly missing in the openWB answer is an error.
+        """
+        api_client = OpenWB2MqttApiClient(
+            api_url=user_input[API_URL],
+            token=user_input.get(API_TOKEN),
+            session=async_get_clientsession(self.hass),
+        )
+        try:
+            components = await api_client.async_get_data({"list_components": "all"})
+        except OpenWB2MqttApiClientCommunicationError:
+            return "cannot_connect"
+        except OpenWB2MqttApiClientError:
+            # For example an older openWB without list_components
+            return None
+
+        if not isinstance(components, dict):
+            return None
+
+        # The answer uses "battery" for the device type "bat"
+        response_key = HTTP_RESPONSE_PREFIX[user_input[DEVICETYPE]]
+        id_list = components.get(response_key)
+        if not isinstance(id_list, list):
+            return None
+
+        known_ids = [str(device_id) for device_id in id_list]
+        if str(user_input[DEVICEID]) not in known_ids:
+            return "unknown_device_id"
+        return None
+
+    async def _async_step_details(
+        self,
+        user_input: dict[str, Any] | None,
+        step_id: str,
+        data_schema: vol.Schema,
+        suggested_values: dict[str, Any],
+        errors: dict[str, str],
+    ) -> ConfigFlowResult:
+        """Handle the details step of the configuration."""
+        if user_input is not None and not errors:
             self.stored_user_input.update(user_input)
             if self.stored_user_input.get(DEVICETYPE) == "chargepoint":
                 return await self.async_step_chargepoint()
@@ -125,6 +198,10 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
                 data={**self.stored_user_input, ID_PREFIX: title},
             )
 
+        if user_input is not None:
+            # Show the form again with the values the user entered
+            suggested_values = user_input
+
         data_schema = self.add_suggested_values_to_schema(data_schema, suggested_values)
 
         return self.async_show_form(
@@ -133,10 +210,17 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_chargepoint(self, user_input=None):
+    async def async_step_chargepoint(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the chargepoint step of the configuration."""
-        errors = {}
+        errors: dict[str, str] = {}
         comm_method = self.stored_user_input.get(COMMUNICATION_METHOD)
+
+        if comm_method == COMM_METHOD_MQTT:
+            data_schema = DATA_SCHEMA_OPTIONS_CP_MQTT
+        else:
+            data_schema = DATA_SCHEMA_OPTIONS_CP
 
         if user_input is not None:
             combined_data = {**self.stored_user_input, **user_input}
@@ -146,77 +230,85 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
 
             # vehicle list as provided by the user (1=Standard-Fahrzeug, 2=Fahrzeug (2))
             vehicle_list = user_input.get(CONF_VEHICLES)
-            # string -> dict{1=Standard-Fahrzeug, 2=Fahrzeug (2))}
-            combined_data[CONF_VEHICLES] = _parse_vehicles_string(vehicle_list)
-            combined_data[ID_PREFIX] = title
+            try:
+                # string -> dict{1=Standard-Fahrzeug, 2=Fahrzeug (2))}
+                combined_data[CONF_VEHICLES] = _parse_vehicles_string(vehicle_list)
+            except ValueError:
+                errors["base"] = "invalid_vehicle_list"
+            else:
+                combined_data[ID_PREFIX] = title
+                return self.async_create_entry(
+                    title=title,
+                    data=combined_data,
+                )
 
-            return self.async_create_entry(
-                title=title,
-                data=combined_data,
-            )
+            data_schema = self.add_suggested_values_to_schema(data_schema, user_input)
 
-        if comm_method == COMM_METHOD_MQTT:
-            return self.async_show_form(
-                step_id="chargepoint",
-                data_schema=DATA_SCHEMA_OPTIONS_CP_MQTT,
-                errors=errors,
-            )
-        else:
-            return self.async_show_form(
-                step_id="chargepoint",
-                data_schema=DATA_SCHEMA_OPTIONS_CP,
-                errors=errors,
-            )
+        return self.async_show_form(
+            step_id="chargepoint",
+            data_schema=data_schema,
+            errors=errors,
+        )
 
-    def _get_title(self, user_input: dict) -> str:
+    def _get_title(self, user_input: dict[str, Any]) -> str:
         """Get the title for the config entry."""
         if user_input.get(COMMUNICATION_METHOD) == COMM_METHOD_MQTT:
             prefix = user_input[MQTT_ROOT_TOPIC]
         else:
             prefix = user_input[API_PREFIX]
 
-        if user_input[DEVICETYPE] == "controller":
-            return f"{prefix}-{user_input[DEVICETYPE]}"
         return f"{prefix}-{user_input[DEVICETYPE]}-{user_input[DEVICEID]}"
 
 
 class OptionsFlowHandler(OptionsFlowWithReload):
     """Handle an options flow for openWB2 MQTT."""
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Manage the options."""
+        errors: dict[str, str] = {}
 
         # Currently, only the chargepoint offers options
         if self.config_entry.data.get(DEVICETYPE) != "chargepoint":
             return self.async_abort(reason="no_conf_options_supported")
 
+        comm_method = self.config_entry.data.get(COMMUNICATION_METHOD, COMM_METHOD_MQTT)
+        if comm_method == COMM_METHOD_MQTT:
+            data_schema = DATA_SCHEMA_OPTIONS_CP_MQTT
+        else:
+            data_schema = DATA_SCHEMA_OPTIONS_CP
+
         # Create the entry with user input
         if user_input is not None:
             # vehicle list as provided by the user (1=Standard-Fahrzeug, 2=Fahrzeug (2))
             vehicle_list = user_input.get(CONF_VEHICLES)
-            # string -> dict{1=Standard-Fahrzeug, 2=Fahrzeug (2))}
-            user_input[CONF_VEHICLES] = _parse_vehicles_string(vehicle_list)
-            return self.async_create_entry(title="", data=user_input)
+            try:
+                # string -> dict{1=Standard-Fahrzeug, 2=Fahrzeug (2))}
+                vehicles = _parse_vehicles_string(vehicle_list)
+            except ValueError:
+                errors["base"] = "invalid_vehicle_list"
+            else:
+                user_input[CONF_VEHICLES] = vehicles
+                return self.async_create_entry(title="", data=user_input)
+
+            # Show the form again with the values the user entered
+            data_schema = self.add_suggested_values_to_schema(data_schema, user_input)
+            return self.async_show_form(
+                step_id="init", data_schema=data_schema, errors=errors
+            )
 
         # Otherwise show a form to the user and ask for configuration options
         # If there are options currently configured, propose them.
         wallbox_power = self.config_entry.options.get(CONF_WALLBOX_POWER)
-        suggested_values = {CONF_WALLBOX_POWER: wallbox_power}
+        suggested_values: dict[str, Any] = {CONF_WALLBOX_POWER: wallbox_power}
         current_options_carlist = self.config_entry.options.get(CONF_VEHICLES, {})
-        comm_method = self.config_entry.data.get(COMMUNICATION_METHOD)
 
         if len(current_options_carlist) > 0:
             # Convert dict -> string for output
             current_options_carlist_str = _format_vehicles_dict(current_options_carlist)
             suggested_values[CONF_VEHICLES] = current_options_carlist_str
 
-        if comm_method == COMM_METHOD_MQTT:
-            data_schema = self.add_suggested_values_to_schema(
-                DATA_SCHEMA_OPTIONS_CP_MQTT, suggested_values
-            )
-        else:
-            data_schema = self.add_suggested_values_to_schema(
-                DATA_SCHEMA_OPTIONS_CP, suggested_values
-            )
+        data_schema = self.add_suggested_values_to_schema(data_schema, suggested_values)
 
         return self.async_show_form(step_id="init", data_schema=data_schema)

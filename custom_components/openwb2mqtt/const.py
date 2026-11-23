@@ -41,6 +41,9 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 if TYPE_CHECKING:
@@ -139,23 +142,24 @@ DATA_SCHEMA = vol.Schema(
     }
 )
 
+# Device type selection, shared by the MQTT and the HTTP API schema
+DEVICE_TYPE_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=[
+            SelectOptionDict(value="counter", label="Counter"),
+            SelectOptionDict(value="chargepoint", label="Chargepoint"),
+            SelectOptionDict(value="pv", label="PV Generator"),
+            SelectOptionDict(value="bat", label="Battery"),
+        ],
+        mode=SelectSelectorMode.DROPDOWN,
+        translation_key="config_selector_devicetype",  # translation is maintained in translations/<lang>.json via this translation_key
+    )
+)
+
 DATA_SCHEMA_MQTT = vol.Schema(
     {
         vol.Required(MQTT_ROOT_TOPIC, default=MQTT_ROOT_TOPIC_DEFAULT): cv.string,
-        vol.Required(DEVICETYPE, default="chargepoint"): SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    SelectOptionDict(value="controller", label="Controller"),
-                    SelectOptionDict(value="counter", label="Counter"),
-                    SelectOptionDict(value="chargepoint", label="Chargepoint"),
-                    SelectOptionDict(value="pv", label="PV Generator"),
-                    SelectOptionDict(value="bat", label="Battery"),
-                    SelectOptionDict(value="vehicle", label="Vehicle"),
-                ],
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key="config_selector_devicetype",  # translation is maintained in translations/<lang>.json via this translation_key
-            )
-        ),
+        vol.Required(DEVICETYPE, default="chargepoint"): DEVICE_TYPE_SELECTOR,
         vol.Required(DEVICEID, default=4): cv.positive_int,
     }
 )
@@ -164,51 +168,32 @@ DATA_SCHEMA_API = vol.Schema(
     {
         vol.Required(API_PREFIX, default=MQTT_ROOT_TOPIC_DEFAULT): cv.string,
         vol.Required(API_URL): cv.string,
-        # vol.Optional(API_TOKEN): cv.string,
-        vol.Required(DEVICETYPE, default="chargepoint"): SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    # Some device types are not available via api
-                    SelectOptionDict(value="controller", label="Controller"),
-                    SelectOptionDict(value="counter", label="Counter"),
-                    SelectOptionDict(value="chargepoint", label="Chargepoint"),
-                    SelectOptionDict(value="pv", label="PV Generator"),
-                    SelectOptionDict(value="bat", label="Battery"),
-                    # SelectOptionDict(value="vehicle", label="Vehicle"),
-                ],
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key="config_selector_devicetype",  # translation is maintained in translations/<lang>.json via this translation_key
-            )
+        vol.Optional(API_TOKEN): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
+        vol.Required(DEVICETYPE, default="chargepoint"): DEVICE_TYPE_SELECTOR,
         vol.Required(DEVICEID, default=4): cv.positive_int,
     }
 )
 
-DATA_SCHEMA_OPTIONS_CP_MQTT = vol.Schema(
-    {
-        vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    SelectOptionDict(value="11", label="11 kW"),
-                    SelectOptionDict(value="22", label="22 kW"),
-                ],
-                mode=SelectSelectorMode.DROPDOWN,
-            )
-        ),
-    }
-)
+# Max. charging power of the wallbox, shared by both chargepoint options schemas
+WALLBOX_POWER_FIELD = {
+    vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
+        SelectSelectorConfig(
+            options=[
+                SelectOptionDict(value="11", label="11 kW"),
+                SelectOptionDict(value="22", label="22 kW"),
+            ],
+            mode=SelectSelectorMode.DROPDOWN,
+        )
+    ),
+}
+
+DATA_SCHEMA_OPTIONS_CP_MQTT = vol.Schema(WALLBOX_POWER_FIELD)
 
 DATA_SCHEMA_OPTIONS_CP = vol.Schema(
     {
-        vol.Required(CONF_WALLBOX_POWER, default="11"): SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    SelectOptionDict(value="11", label="11 kW"),
-                    SelectOptionDict(value="22", label="22 kW"),
-                ],
-                mode=SelectSelectorMode.DROPDOWN,
-            )
-        ),
+        **WALLBOX_POWER_FIELD,
         vol.Optional(
             CONF_VEHICLES,
             description={"suggested_value": "0=Standard-Fahrzeug, 1=Fahrzeug (1)"},

@@ -7,7 +7,13 @@
             "counter_already_configured": "Dieser Zähler wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
             "pv_already_configured": "Diese PV-Anlage wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
             "vehicle_already_configured": "Dieses Fahrzeug wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
-            "chargepoint_already_configured": "Dieser Ladepunkt wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein."
+            "chargepoint_already_configured": "Dieser Ladepunkt wurde schon konfiguriert. Geben Sie ein anderes MQTT-Wurzeltopic/Präfix oder eine andere Geräte-ID ein.",
+            "mqtt_not_configured": "Die MQTT-Integration ist nicht eingerichtet. Richten Sie zuerst die MQTT-Integration ein oder verwenden Sie die HTTP-API."
+        },
+        "error": {
+            "invalid_vehicle_list": "Die Fahrzeugliste ist ungültig. Verwenden Sie das Format ID=Name, getrennt durch Kommas, und verwenden Sie jede ID und jeden Namen nur einmal.",
+            "cannot_connect": "Keine Verbindung zur openWB möglich. Prüfen Sie die API URL und den API Token.",
+            "unknown_device_id": "Die openWB kennt kein Gerät dieses Typs mit dieser Geräte-ID. Prüfen Sie die Geräte-ID auf dem Status-Tab Ihrer openWB."
         },
         "step": {
             "user": {
@@ -25,6 +31,9 @@
                     "DEVICETYPE": "Gerätetyp",
                     "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)"
                 },
+                "data_description": {
+                    "api_token": "Optional. Nur erforderlich, wenn die simpleAPI Ihrer openWB mit einem Token geschützt ist."
+                },
                 "description": "Geben Sie einen Präfix ein, der die openWB eindeutig identifiziert.\n*Wenn Sie von MQTT zur API-Schnittstelle migrieren, geben Sie hier das MQTT-Wurzeltopic ein und die Integration erzeugt die Sensoren etc. mit den gleichen IDs.*\n\nPassen Sie die IP-Adresse an und wählen Sie den Gerätetyp aus.\nBei den  Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage und Batterie ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.",
                 "title": "API-Einstellungen für openWB"
             },
@@ -34,7 +43,7 @@
                     "DEVICETYPE": "Gerätetyp",
                     "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)"
                 },
-                "description": "Geben Sie ein MQTT-Wurzelptopic ein, unter dem die openWB auf Ihrem MQTT-Server erreichbar ist und wählen Sie den Gerätetyp aus. \nBei den  Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage und Batterie ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.\nBeim Gerätetyp Wallbox tragen Sie die Geräte-ID 0 ein.",
+                "description": "Die Integration verwendet die simpleAPI der openWB (openWB Version 2.1.9 oder neuer). Bridgen Sie das Topic openWB/simpleAPI/# von der openWB zu Ihrem MQTT-Server.\n\nGeben Sie ein MQTT-Wurzeltopic ein, unter dem die openWB auf Ihrem MQTT-Server erreichbar ist und wählen Sie den Gerätetyp aus.\nBei den Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage und Batterie ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.",
                 "title": "MQTT-Einstellungen für openWB"
             },
             "chargepoint": {
@@ -51,6 +60,9 @@
         "abort": {
             "no_conf_options_supported": "Dieser Gerätetyp unterstützt keine Optionen."
         },
+        "error": {
+            "invalid_vehicle_list": "Die Fahrzeugliste ist ungültig. Verwenden Sie das Format ID=Name, getrennt durch Kommas, und verwenden Sie jede ID und jeden Namen nur einmal."
+        },
         "step": {
             "init": {
                 "data": {
@@ -65,12 +77,10 @@
     "selector": {
         "config_selector_devicetype": {
             "options": {
-                "controller": "Wallbox",
                 "counter": "Zähler",
                 "chargepoint": "Ladepunkt",
                 "pv": "Photovoltaikanlage",
-                "bat": "Batterie",
-                "vehicle": "Fahrzeug"
+                "bat": "Batterie"
             }
         }
     },
@@ -96,23 +106,7 @@
                     "Target Charging": "Zielladen",
                     "PV Charging": "PV-Laden",
                     "Stop": "Stop",
-                    "Standby": "Standby",
                     "ECO Charging": "Eco"
-                }
-            },
-            "selector_connected_vehicle": {
-                "state": {
-                    "Vehicle 0" : "Fahrzeug 0",
-                    "Vehicle 1" : "Fahrzeug 1",
-                    "Vehicle 2" : "Fahrzeug 2",
-                    "Vehicle 3" : "Fahrzeug 3",
-                    "Vehicle 4" : "Fahrzeug 4",
-                    "Vehicle 5" : "Fahrzeug 5",
-                    "Vehicle 6" : "Fahrzeug 6",
-                    "Vehicle 7" : "Fahrzeug 7",
-                    "Vehicle 8" : "Fahrzeug 8",
-                    "Vehicle 9" : "Fahrzeug 9",
-                    "Vehicle 10" : "Fahrzeug 10"
                 }
             }
         },

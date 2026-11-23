@@ -7,7 +7,13 @@
             "counter_already_configured": "This counter is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
             "pv_already_configured": "This PV system is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
             "vehicle_already_configured": "This vehicle is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
-            "chargepoint_already_configured": "This chargepoint is already configured. Enter a different MQTT root topic/prefix or a different device ID."
+            "chargepoint_already_configured": "This chargepoint is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
+            "mqtt_not_configured": "The MQTT integration is not set up. Set up the MQTT integration first or use the HTTP API."
+        },
+        "error": {
+            "invalid_vehicle_list": "The vehicle list is invalid. Use the format ID=name, separated by commas, and use every ID and every name only once.",
+            "cannot_connect": "Cannot connect to the openWB. Check the API URL and the API token.",
+            "unknown_device_id": "The openWB does not know a device of this type with this device ID. Check the device ID on the status tab of your openWB."
         },
         "step": {
             "user": {
@@ -25,6 +31,9 @@
                     "DEVICETYPE": "Device type",
                     "DEVICEID": "Device ID in openWB (-> status tab)"
                 },
+                "data_description": {
+                    "api_token": "Optional. Only required if the simpleAPI of your openWB is protected with a token."
+                },
                 "description": "Enter a prefix that uniquely identifies the openWB.\n*If you migrate from MQTT to the API interface, enter the MQTT root topic here and the integration creates the sensors etc. with the same IDs.*\n\nAdjust the IP address and select the device type.\nFor the device types counter, chargepoint, PV system and battery, the device ID is also required. You can find it on the status tab of your openWB.",
                 "title": "API settings for openWB"
             },
@@ -34,7 +43,7 @@
                     "DEVICETYPE": "Device type",
                     "DEVICEID": "Device ID in openWB (-> status tab)"
                 },
-                "description": "Enter the MQTT root topic under which the openWB can be reached on your MQTT server and select the device type.\nFor the device types counter, chargepoint, PV system and battery, the device ID is also required. You can find it on the status tab of your openWB.\nFor the device type wallbox, enter the device ID 0.",
+                "description": "The integration uses the simpleAPI of the openWB (openWB version 2.1.9 or newer). Bridge the topic openWB/simpleAPI/# from the openWB to your MQTT server.\n\nEnter the MQTT root topic under which the openWB can be reached on your MQTT server and select the device type.\nFor the device types counter, chargepoint, PV system and battery, the device ID is also required. You can find it on the status tab of your openWB.",
                 "title": "MQTT settings for openWB"
             },
             "chargepoint": {
@@ -51,6 +60,9 @@
         "abort": {
             "no_conf_options_supported": "This device type does not support options."
         },
+        "error": {
+            "invalid_vehicle_list": "The vehicle list is invalid. Use the format ID=name, separated by commas, and use every ID and every name only once."
+        },
         "step": {
             "init": {
                 "data": {
@@ -65,12 +77,10 @@
     "selector": {
         "config_selector_devicetype": {
             "options": {
-                "controller": "Wallbox",
                 "counter": "Counter",
                 "chargepoint": "Chargepoint",
                 "pv": "PV system",
-                "bat": "Battery",
-                "vehicle": "Vehicle"
+                "bat": "Battery"
             }
         }
     },
