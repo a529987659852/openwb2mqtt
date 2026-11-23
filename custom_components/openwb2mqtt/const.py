@@ -95,8 +95,8 @@ HTTP_UPDATE_INTERVAL = 15  # seconds
 HTTP_READ_PARAMETER = {
     "chargepoint": "get_chargepoint_all",
     "counter": "get_counter",
-    "bat": "battery",
-    "pv": "pv",
+    "bat": "get_battery",
+    "pv": "get_pv",
 }
 # The answer contains the key f"{prefix}_{device_id}", per device type
 HTTP_RESPONSE_PREFIX = {
@@ -230,6 +230,16 @@ def _safeFloat(x: str, c=1.0, op="div") -> float | None:
             return float(x) * c
     except (ValueError, TypeError):
         return None
+
+
+def _safeNumber(x: Any) -> int | float | None:
+    """Convert a value to a number, but keep whole numbers from the payload as int.
+
+    28 stays 28 (state "28", not "28.0"), everything else becomes a float.
+    """
+    if isinstance(x, int) and not isinstance(x, bool):
+        return x
+    return _safeFloat(x)
 
 
 def _safeJsonGet(x: str, key: str, default=None):
@@ -2101,7 +2111,7 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:car-electric-outline",
-        value_fn=_safeFloat,
+        value_fn=_safeNumber,
     ),
     OpenWBSensorEntityDescription(
         key="state_str",
@@ -2195,7 +2205,7 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=PERCENTAGE,
         suggested_display_precision=0,
-        value_fn=_safeFloat,
+        value_fn=_safeNumber,
     ),
     OpenWBSensorEntityDescription(
         key="soc/timestamp",
@@ -2224,7 +2234,7 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         icon="mdi:map-marker-distance",
         entity_registry_enabled_default=False,
         suggested_display_precision=1,
-        value_fn=_safeFloat,
+        value_fn=_safeNumber,
     ),
     OpenWBSensorEntityDescription(
         key="instant_charging_current",
@@ -2387,7 +2397,7 @@ COUNTER_SENSORS: list[OpenWBSensorEntityDescription] = [
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfFrequency.HERTZ,
-        value_fn=_safeFloat,
+        value_fn=_safeNumber,
     ),
     *_phase_sensors(
         "currents",
@@ -2404,7 +2414,7 @@ COUNTER_SENSORS: list[OpenWBSensorEntityDescription] = [
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:transmission-tower",
-        value_fn=_safeFloat,
+        value_fn=_safeNumber,
     ),
     OpenWBSensorEntityDescription(
         key="fault_str",
@@ -2478,7 +2488,7 @@ BATTERY_SENSORS: list[OpenWBSensorEntityDescription] = [
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=PERCENTAGE,
-        value_fn=_safeFloat,
+        value_fn=_safeNumber,
     ),
     OpenWBSensorEntityDescription(
         key="power",
@@ -2488,7 +2498,7 @@ BATTERY_SENSORS: list[OpenWBSensorEntityDescription] = [
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:battery-charging",
-        value_fn=_safeFloat,
+        value_fn=_safeNumber,
     ),
     OpenWBSensorEntityDescription(
         key="fault_str",
