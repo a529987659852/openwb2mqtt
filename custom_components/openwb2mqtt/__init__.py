@@ -94,7 +94,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data.get(COMMUNICATION_METHOD, COMM_METHOD_MQTT) == COMM_METHOD_MQTT
         )
         if is_mqtt and device_type in DEVICE_TYPE_NAMES:
-            # Legacy MQTT identifier (OpenWBBaseEntity.device_info)
+            # Device identifier used by the removed legacy MQTT entities
             old_identifier = (
                 DOMAIN,
                 f"{DEVICE_TYPE_NAMES[device_type]} {entry.data[DEVICEID]}",
