@@ -224,9 +224,10 @@ class OpenWbApiLock(CoordinatorEntity[OpenWB2MqttDataUpdateCoordinator], LockEnt
         if value is None:
             return
 
-        payload = (
-            f"{command_key}={value}&chargepoint_nr={self.config_entry.data[DEVICEID]}"
-        )
+        payload = {
+            command_key: str(value),
+            "chargepoint_nr": str(self.config_entry.data[DEVICEID]),
+        }
 
         response = await self.coordinator.client.async_set_data(payload)
         if (

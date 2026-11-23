@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
+from typing import Any
 
 import aiohttp
 
@@ -25,36 +26,40 @@ class OpenWB2MqttApiClient:
         self._token = token
         self._session = session
 
-    async def async_get_data(self, endpoint: str) -> any:
-        """Get data from the API."""
-        return await self._api_wrapper("get", f"{self._api_url}/{endpoint}")
+    async def async_get_data(self, params: dict[str, str]) -> dict[str, Any]:
+        """Read data, e.g. params={"get_chargepoint_all": "6"}."""
+        return await self._api_wrapper("get", params=params)
 
-    async def async_set_data(self, data: dict | str) -> any:
-        """Set data via the API."""
-        return await self._api_wrapper("post", self._api_url, data=data)
+    async def async_set_data(self, data: dict[str, str]) -> dict[str, Any]:
+        """Send a command as form data, e.g. {"chargemode": "pv", "chargepoint_nr": "6"}."""
+        return await self._api_wrapper("post", data=data)
 
     async def _api_wrapper(
         self,
         method: str,
-        url: str,
-        data: dict | str | None = None,
-        headers: dict | None = None,
-    ) -> any:
-        """Wrap the API call."""
-        _LOGGER.debug("Calling API: %s %s, data: %s", method.upper(), url, data)
-        if headers is None:
-            headers = {}
+        params: dict[str, str] | None = None,
+        data: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Call the API and return the JSON answer."""
+        _LOGGER.debug(
+            "Calling API: %s %s, params: %s, data: %s",
+            method.upper(),
+            self._api_url,
+            params,
+            data,
+        )
+        headers: dict[str, str] = {}
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
 
         try:
             async with asyncio.timeout(10):
-                if method.lower() == "post":
-                    headers["Content-Type"] = "application/x-www-form-urlencoded"
+                # aiohttp sets the form Content-Type for dict data itself
                 response = await self._session.request(
                     method=method,
-                    url=url,
+                    url=self._api_url,
                     headers=headers,
+                    params=params,
                     data=data,
                 )
                 response.raise_for_status()
@@ -70,7 +75,6 @@ class OpenWB2MqttApiClient:
                 "Error fetching information",
             ) from exception
         except Exception as exception:
-            _LOGGER.exception("Something really wrong happened!")
             raise OpenWB2MqttApiClientError(
                 "Something really wrong happened!"
             ) from exception

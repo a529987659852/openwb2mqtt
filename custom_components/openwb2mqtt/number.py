@@ -157,7 +157,7 @@ class OpenWB2MqttApiNumber(CoordinatorEntity, NumberEntity):
         if not command_key or not state_key:
             return
 
-        payload = f"{command_key}={value}&chargepoint_nr={chargepoint_nr}"
+        payload = {command_key: str(value), "chargepoint_nr": str(chargepoint_nr)}
 
         response = await self.coordinator.client.async_set_data(payload)
         if (

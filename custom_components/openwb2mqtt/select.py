@@ -168,7 +168,7 @@ class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
         self.async_write_ha_state()
 
         command_key: str | None
-        payload: str
+        payload: dict[str, str]
         chargepoint_nr = self.config_entry.data[DEVICEID]
 
         command_key = self.entity_description.api_key_command
@@ -177,7 +177,7 @@ class OpenWB2MqttApiSelect(CoordinatorEntity, SelectEntity):
             value = self.coordinator.vehicle_name_to_id_map.get(option, option)
         elif self.entity_description.api_value_map_command:
             value = self.entity_description.api_value_map_command.get(option, option)
-        payload = f"{command_key}={value}&chargepoint_nr={chargepoint_nr}"
+        payload = {command_key: str(value), "chargepoint_nr": str(chargepoint_nr)}
 
         state_key = self.entity_description.api_key
         if not command_key or not state_key:

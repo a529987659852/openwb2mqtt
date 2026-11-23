@@ -35,7 +35,7 @@ from .snapshot_helpers import (
 
 API_BASE_URL = "http://192.168.0.68/openWB/simpleAPI/simpleapi.php"
 
-# device type -> (device id, endpoint that main requests)
+# device type -> (device id, query string the API client requests)
 DEVICES: dict[str, tuple[int, str]] = {
     "chargepoint": (6, "?get_chargepoint_all=6"),
     "counter": (0, "?get_counter=0"),
@@ -73,7 +73,7 @@ async def test_http_entities_snapshot(
     freezer.move_to(FROZEN_TIME)
     device_id, endpoint = DEVICES[device_type]
     aioclient_mock.get(
-        f"{API_BASE_URL}/{endpoint}",
+        f"{API_BASE_URL}{endpoint}",
         json=load_fixture_json(f"http_{device_type}.json"),
     )
 

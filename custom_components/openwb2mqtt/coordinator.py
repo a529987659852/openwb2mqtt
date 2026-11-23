@@ -62,31 +62,31 @@ class OpenWB2MqttDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             if self._device_type == "chargepoint":
                 response = await self.client.async_get_data(
-                    f"?get_{self._device_type}_all={self._device_id}"
+                    {"get_chargepoint_all": str(self._device_id)}
                 )
                 _LOGGER.debug(response)
                 return response.get(f"{self._device_type}_{self._device_id}")
             if self._device_type == "counter":
                 response = await self.client.async_get_data(
-                    f"?get_{self._device_type}={self._device_id}"
+                    {"get_counter": str(self._device_id)}
                 )
                 _LOGGER.debug(response)
                 return response.get(f"{self._device_type}_{self._device_id}")
             if self._device_type == "bat":
                 response = await self.client.async_get_data(
-                    f"?get_battery={self._device_id}"
+                    {"get_battery": str(self._device_id)}
                 )
                 _LOGGER.debug(response)
                 return response.get(f"battery_{self._device_id}")
             if self._device_type == "pv":
                 response = await self.client.async_get_data(
-                    f"?get_{self._device_type}={self._device_id}"
+                    {"get_pv": str(self._device_id)}
                 )
                 _LOGGER.debug(response)
                 return response.get(f"{self._device_type}_{self._device_id}")
             if self._device_type == "controller":
                 response = await self.client.async_get_data(
-                    "?get_lastlivevaluesjson&raw=true"
+                    {"get_lastlivevaluesjson": "", "raw": "true"}
                 )
                 _LOGGER.debug(response)
                 return response
