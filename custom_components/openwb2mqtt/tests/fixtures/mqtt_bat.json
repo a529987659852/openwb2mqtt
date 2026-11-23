@@ -1,0 +1,34 @@
+[
+  [
+    "openWB/bat/1/get/daily_exported",
+    "6816.34"
+  ],
+  [
+    "openWB/bat/1/get/daily_imported",
+    "7486.89"
+  ],
+  [
+    "openWB/bat/1/get/exported",
+    "5913906.56"
+  ],
+  [
+    "openWB/bat/1/get/fault_state",
+    "0"
+  ],
+  [
+    "openWB/bat/1/get/fault_str",
+    "\"Kein Fehler.\""
+  ],
+  [
+    "openWB/bat/1/get/imported",
+    "6078357.6"
+  ],
+  [
+    "openWB/bat/1/get/power",
+    "3140"
+  ],
+  [
+    "openWB/bat/1/get/soc",
+    "28"
+  ]
+]

@@ -1,0 +1,34 @@
+[
+  [
+    "openWB/pv/5/get/currents",
+    "[0.0, 0.0, 0.0]"
+  ],
+  [
+    "openWB/pv/5/get/daily_exported",
+    "22066.157"
+  ],
+  [
+    "openWB/pv/5/get/exported",
+    "36219608.9"
+  ],
+  [
+    "openWB/pv/5/get/fault_state",
+    "0"
+  ],
+  [
+    "openWB/pv/5/get/fault_str",
+    "\"Kein Fehler.\""
+  ],
+  [
+    "openWB/pv/5/get/monthly_exported",
+    "545731.8889999986"
+  ],
+  [
+    "openWB/pv/5/get/power",
+    "-9567.0"
+  ],
+  [
+    "openWB/pv/5/get/yearly_exported",
+    "12858115.505999997"
+  ]
+]

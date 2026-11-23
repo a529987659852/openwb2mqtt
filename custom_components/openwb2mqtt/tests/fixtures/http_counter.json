@@ -1,0 +1,32 @@
+{
+  "counter_0": {
+    "power": -945,
+    "voltages": [
+      234.5,
+      236.5,
+      237
+    ],
+    "currents": [
+      15,
+      -9.7,
+      -9.6
+    ],
+    "powers": [
+      3471,
+      -2227,
+      -2189
+    ],
+    "power_factors": [
+      0,
+      0,
+      0
+    ],
+    "frequency": 50,
+    "exported": 18178843.178772874,
+    "daily_exported": 5357.091,
+    "imported": 3585123.221144811,
+    "daily_imported": 1568.854,
+    "fault_str": "\"Kein Fehler.\"",
+    "fault_state": 0
+  }
+}

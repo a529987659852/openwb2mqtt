@@ -1,0 +1,18 @@
+{
+  "battery_1": {
+    "power": 3130,
+    "soc": 28,
+    "currents": [
+      0,
+      0,
+      0
+    ],
+    "imported": 6078374.95,
+    "exported": 5913906.56,
+    "daily_imported": 7486.89,
+    "daily_exported": 6816.34,
+    "fault_str": "\"Kein Fehler.\"",
+    "fault_state": 0,
+    "power_limit_controllable": true
+  }
+}

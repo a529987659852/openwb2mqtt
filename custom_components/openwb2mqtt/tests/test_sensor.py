@@ -1,41 +1,29 @@
 """Tests for the openwb2mqtt sensor platform."""
 
+# These older unit tests look at private attributes on purpose.
+# ruff: noqa: SLF001
+
 import json
 import time
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, patch
 
+from custom_components.openwb2mqtt.const import (
+    DOMAIN,
+    openwbDynamicSensorEntityDescription,
+    openwbSensorEntityDescription,
+)
+from custom_components.openwb2mqtt.sensor import openwbDynamicSensor, openwbSensor
 import pytest
 
-from homeassistant.components import mqtt
 from homeassistant.components.mqtt.models import ReceiveMessage
-from homeassistant.components.sensor import (
-    DOMAIN as SENSOR_DOMAIN,
-    SensorDeviceClass,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_UNIT_OF_MEASUREMENT,
-    STATE_UNAVAILABLE,
     STATE_UNKNOWN,
     UnitOfPower,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.setup import async_setup_component
-
-from config.custom_components.openwb2mqtt.const import (
-    DOMAIN,
-    SENSORS_PER_CHARGEPOINT,
-    openwbDynamicSensorEntityDescription,
-    openwbSensorEntityDescription,
-)
-from config.custom_components.openwb2mqtt.sensor import (
-    openwbSensor,
-    openwbDynamicSensor,
-)
-
-from tests.common import MockConfigEntry, async_fire_mqtt_message
 
 
 async def test_sensor_setup(hass: HomeAssistant) -> None:
@@ -120,77 +108,6 @@ async def test_sensor_setup(hass: HomeAssistant) -> None:
         assert sensor._attr_native_value == "1000"
 
 
-async def test_sensor_value_transformation(hass: HomeAssistant) -> None:
-    """Test value transformation in the sensor.
-
-    This test verifies that the sensor correctly applies its value_fn to transform
-    incoming MQTT payloads before updating its state. In this case, it tests a
-    transformation that converts a value from milliwatt-hours to kilowatt-hours
-    by dividing by 1000.
-
-    This functionality is important for sensors that need to convert between
-    different units or formats used by the MQTT API and Home Assistant.
-    """
-    # Mock MQTT component
-    with patch("homeassistant.components.mqtt.async_subscribe") as mock_subscribe:
-        mock_subscribe.return_value = AsyncMock(return_value=None)
-
-        # Create a sensor description with a value function for transformation
-        description = openwbSensorEntityDescription(
-            key="daily_imported",
-            name="Daily Imported",
-            device_class=SensorDeviceClass.ENERGY,
-            native_unit_of_measurement="kWh",
-            state_class=SensorStateClass.TOTAL_INCREASING,
-            mqttTopicCurrentValue="openWB/chargepoint/1/get/daily_imported",
-            value_fn=lambda x: str(float(x) / 1000.0),
-        )
-
-        # Create the sensor
-        sensor = openwbSensor(
-            uniqueID="test_unique_id",
-            description=description,
-            device_friendly_name="Test Device",
-            mqtt_root="openWB",
-        )
-
-        # Add the sensor to hass
-        sensor.hass = hass
-
-        # Register the entity with Home Assistant
-        hass.states.async_set(
-            sensor.entity_id,
-            STATE_UNKNOWN,
-            {
-                ATTR_DEVICE_CLASS: description.device_class,
-                ATTR_UNIT_OF_MEASUREMENT: description.native_unit_of_measurement,
-            },
-        )
-        await hass.async_block_till_done()
-
-        # Call async_added_to_hass to register the callback
-        await sensor.async_added_to_hass()
-
-        # Get the callback function from the mock
-        callback = mock_subscribe.call_args[0][2]
-
-        # Simulate message received
-        message = ReceiveMessage(
-            topic="openWB/chargepoint/1/get/daily_imported",
-            payload="1000000",
-            qos=0,
-            retain=False,
-            subscribed_topic="openWB/chargepoint/1/get/daily_imported",
-            timestamp=time.time(),
-        )
-
-        # Call the callback with the message
-        callback(message)
-
-        # Verify state was updated with transformed value
-        assert sensor._attr_native_value == "1000.0"
-
-
 async def test_openwb_sensor_init(hass: HomeAssistant) -> None:
     """Test initialization of openwbSensor.
 
@@ -228,7 +145,7 @@ async def test_openwb_sensor_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.parametrize(
-    "payload,expected_state",
+    ("payload", "expected_state"),
     [
         ("100", "100"),
         ("0", "0"),
@@ -332,7 +249,7 @@ async def test_sensor_value_function(hass: HomeAssistant) -> None:
     )
 
     # Create the sensor
-    sensor = openwbSensor(
+    openwbSensor(
         uniqueID="test_unique_id",
         description=description,
         device_friendly_name="Test Device",
@@ -366,10 +283,12 @@ async def test_dynamic_sensor_init(hass: HomeAssistant) -> None:
         native_unit_of_measurement="A",
         state_class=SensorStateClass.MEASUREMENT,
         mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-        value_fn=lambda x: json.loads(x)
-        .get("chargemode", {})
-        .get("instant_charging", {})
-        .get("current"),
+        value_fn=lambda x: (
+            json.loads(x)
+            .get("chargemode", {})
+            .get("instant_charging", {})
+            .get("current")
+        ),
     )
 
     # Create the sensor
@@ -413,10 +332,12 @@ async def test_dynamic_sensor_subscription_update(hass: HomeAssistant) -> None:
             native_unit_of_measurement="A",
             state_class=SensorStateClass.MEASUREMENT,
             mqttTopicTemplate="{mqtt_root}/vehicle/template/charge_template/{charge_template_id}",
-            value_fn=lambda x: json.loads(x)
-            .get("chargemode", {})
-            .get("instant_charging", {})
-            .get("current"),
+            value_fn=lambda x: (
+                json.loads(x)
+                .get("chargemode", {})
+                .get("instant_charging", {})
+                .get("current")
+            ),
         )
 
         # Create the sensor

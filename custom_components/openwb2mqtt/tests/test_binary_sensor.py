@@ -1,36 +1,25 @@
 """Tests for the openwb2mqtt binary_sensor platform."""
 
-import json
-from unittest.mock import AsyncMock, MagicMock, call, patch
-import time
+# These older unit tests look at private attributes on purpose.
+# ruff: noqa: SLF001
 
+import time
+from unittest.mock import patch
+
+from custom_components.openwb2mqtt.binary_sensor import openwbBinarySensor
+from custom_components.openwb2mqtt.const import (
+    DOMAIN,
+    openwbBinarySensorEntityDescription,
+)
 import pytest
 
-from homeassistant.components import mqtt
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorDeviceClass,
 )
 from homeassistant.components.mqtt.models import ReceiveMessage
-from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
-    STATE_OFF,
-    STATE_ON,
-    STATE_UNAVAILABLE,
-    STATE_UNKNOWN,
-)
+from homeassistant.const import ATTR_DEVICE_CLASS, STATE_OFF, STATE_ON, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.setup import async_setup_component
-
-from config.custom_components.openwb2mqtt.const import (
-    DOMAIN,
-    BINARY_SENSORS_PER_CHARGEPOINT,
-    openwbBinarySensorEntityDescription,
-)
-from config.custom_components.openwb2mqtt.binary_sensor import openwbBinarySensor
-
-from tests.common import MockConfigEntry, async_fire_mqtt_message
 
 
 async def test_binary_sensor_setup(hass: HomeAssistant, mock_mqtt_subscribe) -> None:
@@ -154,7 +143,7 @@ async def test_openwb_binary_sensor_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.parametrize(
-    "payload,expected_state",
+    ("payload", "expected_state"),
     [
         ("1", STATE_ON),
         ("0", STATE_OFF),

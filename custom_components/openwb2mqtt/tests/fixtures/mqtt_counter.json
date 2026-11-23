@@ -1,0 +1,50 @@
+[
+  [
+    "openWB/counter/0/get/currents",
+    "[15.1, -9.7, -9.5]"
+  ],
+  [
+    "openWB/counter/0/get/daily_exported",
+    "5357.091"
+  ],
+  [
+    "openWB/counter/0/get/daily_imported",
+    "1568.854"
+  ],
+  [
+    "openWB/counter/0/get/exported",
+    "18178837.94115293"
+  ],
+  [
+    "openWB/counter/0/get/fault_state",
+    "0"
+  ],
+  [
+    "openWB/counter/0/get/fault_str",
+    "\"Kein Fehler.\""
+  ],
+  [
+    "openWB/counter/0/get/frequency",
+    "50"
+  ],
+  [
+    "openWB/counter/0/get/imported",
+    "3585123.221144811"
+  ],
+  [
+    "openWB/counter/0/get/power",
+    "-954"
+  ],
+  [
+    "openWB/counter/0/get/power_factors",
+    "[0.0, 0.0, 0.0]"
+  ],
+  [
+    "openWB/counter/0/get/powers",
+    "[3427, -2179, -2202]"
+  ],
+  [
+    "openWB/counter/0/get/voltages",
+    "[234.9, 236.7, 237.0]"
+  ]
+]
