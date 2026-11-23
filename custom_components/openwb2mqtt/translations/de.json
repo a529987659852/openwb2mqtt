@@ -145,6 +145,9 @@
         "not_available_mqtt": {
             "message": "Diese Funktion ist über MQTT nicht verfügbar."
         },
+        "mqtt_not_ready": {
+            "message": "Die MQTT-Integration ist noch nicht bereit."
+        },
         "option_not_settable": {
             "message": "Diese Option kann nicht gesetzt werden."
         }

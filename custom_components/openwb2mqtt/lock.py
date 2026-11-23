@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 from typing import Any
 
@@ -15,13 +14,7 @@ from homeassistant.util import slugify
 
 from .common import OpenWBBaseEntity, OpenWBEntity, is_supported
 from .const import (
-    COMM_METHOD_HTTP,
-    COMMUNICATION_METHOD,
-    DEVICEID,
-    DEVICETYPE,
     LOCKS_BY_DEVICE_TYPE,
-    LOCKS_PER_CHARGEPOINT,
-    MQTT_ROOT_TOPIC,
     OpenWBLockEntityDescription,
     _to_bool,
     openwbLockEntityDescription,
@@ -40,56 +33,13 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up lock entities for openWB."""
-    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
-        coordinator = entry.runtime_data
-        descriptions = LOCKS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
-        async_add_entities(
-            OpenWBLock(coordinator, description, Platform.LOCK)
-            for description in descriptions
-            if is_supported(description, coordinator.transport)
-        )
-        return
-
-    # MQTT setup (legacy entities)
-    config = entry
-    device_type = config.data[DEVICETYPE]
-    entities = []
-    descriptions_copy = copy.deepcopy(LOCKS_PER_CHARGEPOINT)
-    integration_unique_id = config.unique_id
-    if not integration_unique_id:
-        _LOGGER.error("Integration unique ID is not set")
-        return
-    mqtt_root = config.data[MQTT_ROOT_TOPIC]
-    device_id = config.data[DEVICEID]
-    device_type_name = "Chargepoint"
-
-    if device_type == "chargepoint":
-        for description in descriptions_copy:
-            command_topic = f"{mqtt_root}/{description.mqttTopicCommand}"
-            current_value_topic = (
-                f"{mqtt_root}/chargepoint/{description.mqttTopicCurrentValue}"
-            )
-            if "_chargePointID_" in command_topic:
-                command_topic = command_topic.replace(
-                    "_chargePointID_", str(device_id)
-                )
-            if "_chargePointID_" in current_value_topic:
-                current_value_topic = current_value_topic.replace(
-                    "_chargePointID_", str(device_id)
-                )
-            _LOGGER.debug("Lock Topic: %s", current_value_topic)
-            entities.append(
-                OpenWbMqttLock(
-                    uniqueID=integration_unique_id,
-                    description=description,
-                    device_friendly_name=f"{device_type_name} {device_id}",
-                    mqtt_root=mqtt_root,
-                    deviceID=device_id,
-                    state_topic=current_value_topic,
-                    command_topic=command_topic,
-                )
-            )
-    async_add_entities(entities)
+    coordinator = entry.runtime_data
+    descriptions = LOCKS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+    async_add_entities(
+        OpenWBLock(coordinator, description, Platform.LOCK)
+        for description in descriptions
+        if is_supported(description, coordinator.transport)
+    )
 
 
 class OpenWBLock(OpenWBEntity, LockEntity):

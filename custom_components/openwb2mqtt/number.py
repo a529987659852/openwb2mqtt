@@ -20,16 +20,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity, OpenWBEntity, async_setup_numbers, is_supported
+from .common import OpenWBBaseEntity, OpenWBEntity, is_supported
 from .const import (
-    COMM_METHOD_HTTP,
-    COMMUNICATION_METHOD,
     CONF_WALLBOX_POWER,
-    DEVICEID,
-    DEVICETYPE,
     DOMAIN,
     NUMBERS_BY_DEVICE_TYPE,
-    NUMBERS_PER_CHARGEPOINT,
     OpenWBNumberEntityDescription,
     max_current_for_wallbox_power,
     openwbDynamicNumberEntityDescription,
@@ -49,62 +44,13 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up number entities for openWB."""
-    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
-        coordinator = entry.runtime_data
-        descriptions = NUMBERS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
-        async_add_entities(
-            OpenWBNumber(coordinator, description, Platform.NUMBER)
-            for description in descriptions
-            if is_supported(description, coordinator.transport)
-        )
-        return
-
-    # MQTT setup (legacy entities)
-    config = entry
-    device_type = config.data[DEVICETYPE]
-    if device_type == "chargepoint":
-        regular_numbers = [
-            desc
-            for desc in NUMBERS_PER_CHARGEPOINT
-            if not isinstance(desc, openwbDynamicNumberEntityDescription)
-        ]
-        dynamic_numbers = [
-            desc
-            for desc in NUMBERS_PER_CHARGEPOINT
-            if isinstance(desc, openwbDynamicNumberEntityDescription)
-        ]
-
-        def process_chargepoint_numbers(
-            description, device_type, device_id, mqtt_root
-        ):
-            description.mqttTopicCommand = (
-                f"{mqtt_root}/{description.mqttTopicCommand}"
-            )
-            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
-
-        await async_setup_numbers(
-            hass,
-            config,
-            async_add_entities,
-            regular_numbers,
-            "{mqtt_root}/{device_type}/{device_id}/{key}",
-            "Chargepoint",
-            process_chargepoint_numbers,
-        )
-
-        if dynamic_numbers:
-            entities = [
-                openwbDynamicNumber(
-                    config_entry=config,
-                    uniqueID=config.unique_id,
-                    description=desc,
-                    device_friendly_name=f"Chargepoint {config.data[DEVICEID]}",
-                    mqtt_root=config.data["mqttroot"],
-                    device_id=config.data[DEVICEID],
-                )
-                for desc in dynamic_numbers
-            ]
-            async_add_entities(entities)
+    coordinator = entry.runtime_data
+    descriptions = NUMBERS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+    async_add_entities(
+        OpenWBNumber(coordinator, description, Platform.NUMBER)
+        for description in descriptions
+        if is_supported(description, coordinator.transport)
+    )
 
 
 class OpenWBNumber(OpenWBEntity, NumberEntity):

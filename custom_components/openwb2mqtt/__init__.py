@@ -2,9 +2,11 @@
 
 import logging
 
+from homeassistant.components import mqtt
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import issue_registry as ir
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
+from homeassistant.helpers import device_registry as dr, issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api_client import OpenWB2MqttApiClient
@@ -14,13 +16,19 @@ from .const import (
     API_TOKEN,
     API_URL,
     COMM_METHOD_HTTP,
+    COMM_METHOD_MQTT,
     COMMUNICATION_METHOD,
+    DEVICE_TYPE_NAMES,
+    DEVICEID,
     DEVICETYPE,
     DOMAIN,
+    ID_PREFIX,
+    MQTT_ROOT_TOPIC,
     PLATFORMS,
     REMOVED_DEVICE_TYPES,
+    get_id_prefix,
 )
-from .coordinator import OpenWBConfigEntry, OpenWBHttpCoordinator
+from .coordinator import OpenWBConfigEntry, OpenWBHttpCoordinator, OpenWBMqttCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,9 +68,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: OpenWBConfigEntry) -> bo
         coordinator = OpenWBHttpCoordinator(hass, entry, api_client)
         await coordinator.async_config_entry_first_refresh()
         entry.runtime_data = coordinator
-    # MQTT entries still use the legacy entities (no coordinator yet)
+    else:
+        if not await mqtt.async_wait_for_mqtt_client(hass):
+            raise ConfigEntryNotReady(
+                translation_domain=DOMAIN, translation_key="mqtt_not_ready"
+            )
+        coordinator = OpenWBMqttCoordinator(hass, entry)
+        await coordinator.async_start()
+        entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate old entries. IDs of entities and devices must stay the same."""
+    if entry.version == 1 and entry.minor_version < 2:
+        id_prefix = get_id_prefix(entry)  # old rule
+        device_type = entry.data.get(DEVICETYPE)
+        is_mqtt = (
+            entry.data.get(COMMUNICATION_METHOD, COMM_METHOD_MQTT) == COMM_METHOD_MQTT
+        )
+        if is_mqtt and device_type in DEVICE_TYPE_NAMES:
+            # Legacy MQTT identifier (OpenWBBaseEntity.device_info)
+            old_identifier = (
+                DOMAIN,
+                f"{DEVICE_TYPE_NAMES[device_type]} {entry.data[DEVICEID]}",
+                entry.data[MQTT_ROOT_TOPIC],
+            )
+            device_registry = dr.async_get(hass)
+            for device in dr.async_entries_for_config_entry(
+                device_registry, entry.entry_id
+            ):
+                if old_identifier in device.identifiers:
+                    try:
+                        device_registry.async_update_device(
+                            device.id, new_identifiers={(DOMAIN, id_prefix)}
+                        )
+                    except HomeAssistantError as err:  # DeviceIdentifierCollisionError
+                        _LOGGER.warning(
+                            "Could not migrate device %s: %s", device.name, err
+                        )
+        new_data = dict(entry.data)
+        new_data[ID_PREFIX] = id_prefix
+        new_data.setdefault(COMMUNICATION_METHOD, COMM_METHOD_MQTT)
+        hass.config_entries.async_update_entry(entry, data=new_data, minor_version=2)
     return True
 
 

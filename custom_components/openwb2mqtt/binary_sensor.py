@@ -14,22 +14,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import (
-    OpenWBBaseEntity,
-    OpenWBEntity,
-    async_setup_binary_sensors,
-    is_supported,
-)
+from .common import OpenWBBaseEntity, OpenWBEntity, is_supported
 from .const import (
     BINARY_SENSORS_BY_DEVICE_TYPE,
-    BINARY_SENSORS_PER_BATTERY,
-    BINARY_SENSORS_PER_CHARGEPOINT,
-    BINARY_SENSORS_PER_COUNTER,
-    BINARY_SENSORS_PER_PVGENERATOR,
-    BINARY_SENSORS_PER_VEHICLE,
-    COMM_METHOD_HTTP,
-    COMMUNICATION_METHOD,
-    DEVICETYPE,
     OpenWBBinarySensorEntityDescription,
     _to_bool,
     openwbBinarySensorEntityDescription,
@@ -48,65 +35,13 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up binary sensors for openWB."""
-    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
-        coordinator = entry.runtime_data
-        descriptions = BINARY_SENSORS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
-        async_add_entities(
-            OpenWBBinarySensor(coordinator, description, Platform.BINARY_SENSOR)
-            for description in descriptions
-            if is_supported(description, coordinator.transport)
-        )
-        return
-
-    # MQTT setup (legacy entities)
-    config = entry
-    device_type = config.data[DEVICETYPE]
-    topic_template = "{mqtt_root}/{device_type}/{device_id}/get/{key}"
-    if device_type == "chargepoint":
-        await async_setup_binary_sensors(
-            hass,
-            config,
-            async_add_entities,
-            BINARY_SENSORS_PER_CHARGEPOINT,
-            topic_template,
-            "Chargepoint",
-        )
-    elif device_type == "counter":
-        await async_setup_binary_sensors(
-            hass,
-            config,
-            async_add_entities,
-            BINARY_SENSORS_PER_COUNTER,
-            topic_template,
-            "Counter",
-        )
-    elif device_type == "bat":
-        await async_setup_binary_sensors(
-            hass,
-            config,
-            async_add_entities,
-            BINARY_SENSORS_PER_BATTERY,
-            topic_template,
-            "Battery",
-        )
-    elif device_type == "pv":
-        await async_setup_binary_sensors(
-            hass,
-            config,
-            async_add_entities,
-            BINARY_SENSORS_PER_PVGENERATOR,
-            topic_template,
-            "PV",
-        )
-    elif device_type == "vehicle":
-        await async_setup_binary_sensors(
-            hass,
-            config,
-            async_add_entities,
-            BINARY_SENSORS_PER_VEHICLE,
-            topic_template,
-            "Vehicle",
-        )
+    coordinator = entry.runtime_data
+    descriptions = BINARY_SENSORS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+    async_add_entities(
+        OpenWBBinarySensor(coordinator, description, Platform.BINARY_SENSOR)
+        for description in descriptions
+        if is_supported(description, coordinator.transport)
+    )
 
 
 class OpenWBBinarySensor(OpenWBEntity, BinarySensorEntity):

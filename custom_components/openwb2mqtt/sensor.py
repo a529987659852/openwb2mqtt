@@ -15,19 +15,9 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity, OpenWBEntity, async_setup_sensors, is_supported
+from .common import OpenWBBaseEntity, OpenWBEntity, is_supported
 from .const import (
-    COMM_METHOD_HTTP,
-    COMMUNICATION_METHOD,
-    DEVICETYPE,
-    MANUFACTURER,
     SENSORS_BY_DEVICE_TYPE,
-    SENSORS_CONTROLLER,
-    SENSORS_PER_BATTERY,
-    SENSORS_PER_CHARGEPOINT,
-    SENSORS_PER_COUNTER,
-    SENSORS_PER_PVGENERATOR,
-    SENSORS_PER_VEHICLE,
     OpenWBSensorEntityDescription,
     openwbDynamicSensorEntityDescription,
     openwbSensorEntityDescription,
@@ -46,109 +36,13 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up sensors for openWB."""
-    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
-        coordinator = entry.runtime_data
-        descriptions = SENSORS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
-        async_add_entities(
-            OpenWBSensor(coordinator, description, Platform.SENSOR)
-            for description in descriptions
-            if is_supported(description, coordinator.transport)
-        )
-        return
-
-    # MQTT setup (legacy entities)
-    config = entry
-    device_type = config.data[DEVICETYPE]
-    if device_type == "controller":
-        await async_setup_sensors(
-            hass,
-            config,
-            async_add_entities,
-            SENSORS_CONTROLLER,
-            "{mqtt_root}/{key}",
-            MANUFACTURER,
-        )
-    elif device_type == "chargepoint":
-        regular_sensors = [
-            desc
-            for desc in SENSORS_PER_CHARGEPOINT
-            if not isinstance(desc, openwbDynamicSensorEntityDescription)
-        ]
-        dynamic_sensors = [
-            desc
-            for desc in SENSORS_PER_CHARGEPOINT
-            if isinstance(desc, openwbDynamicSensorEntityDescription)
-        ]
-
-        await async_setup_sensors(
-            hass,
-            config,
-            async_add_entities,
-            regular_sensors,
-            "{mqtt_root}/{device_type}/{device_id}/{key}",
-            "Chargepoint",
-        )
-
-        if dynamic_sensors:
-            entities = [
-                openwbDynamicSensor(
-                    uniqueID=config.unique_id,
-                    description=desc,
-                    device_friendly_name=f"Chargepoint {config.data['DEVICEID']}",
-                    mqtt_root=config.data["mqttroot"],
-                    device_id=config.data["DEVICEID"],
-                )
-                for desc in dynamic_sensors
-            ]
-            async_add_entities(entities)
-    elif device_type == "counter":
-        await async_setup_sensors(
-            hass,
-            config,
-            async_add_entities,
-            SENSORS_PER_COUNTER,
-            "{mqtt_root}/{device_type}/{device_id}/get/{key}",
-            "Counter",
-        )
-    elif device_type == "bat":
-        await async_setup_sensors(
-            hass,
-            config,
-            async_add_entities,
-            SENSORS_PER_BATTERY,
-            "{mqtt_root}/{device_type}/{device_id}/get/{key}",
-            "Battery",
-        )
-    elif device_type == "pv":
-        await async_setup_sensors(
-            hass,
-            config,
-            async_add_entities,
-            SENSORS_PER_PVGENERATOR,
-            "{mqtt_root}/{device_type}/{device_id}/get/{key}",
-            "PV",
-        )
-    elif device_type == "vehicle":
-
-        def process_vehicle_topics(description, device_type, device_id, mqtt_root):
-            if description.key == "name":
-                description.mqttTopicCurrentValue = (
-                    f"{mqtt_root}/{device_type}/{device_id}/{description.key}"
-                )
-            else:
-                description.mqttTopicCurrentValue = (
-                    f"{mqtt_root}/{device_type}/{device_id}/get/{description.key}"
-                )
-
-        await async_setup_sensors(
-            hass,
-            config,
-            async_add_entities,
-            SENSORS_PER_VEHICLE,
-            "{mqtt_root}/{device_type}/{device_id}/get/{key}",
-            "Vehicle",
-            process_vehicle_topics,
-        )
+    coordinator = entry.runtime_data
+    descriptions = SENSORS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+    async_add_entities(
+        OpenWBSensor(coordinator, description, Platform.SENSOR)
+        for description in descriptions
+        if is_supported(description, coordinator.transport)
+    )
 
 
 class OpenWBSensor(OpenWBEntity, SensorEntity):

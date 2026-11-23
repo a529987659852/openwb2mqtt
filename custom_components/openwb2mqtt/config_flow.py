@@ -23,6 +23,7 @@ from .const import (
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
+    ID_PREFIX,
     MQTT_ROOT_TOPIC,
     MQTT_ROOT_TOPIC_DEFAULT,
 )
@@ -66,6 +67,7 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
     """
 
     VERSION = 1
+    MINOR_VERSION = 2
 
     @staticmethod
     @callback
@@ -120,7 +122,7 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
 
             return self.async_create_entry(
                 title=title,
-                data=self.stored_user_input,
+                data={**self.stored_user_input, ID_PREFIX: title},
             )
 
         data_schema = self.add_suggested_values_to_schema(data_schema, suggested_values)
@@ -146,6 +148,7 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
             vehicle_list = user_input.get(CONF_VEHICLES)
             # string -> dict{1=Standard-Fahrzeug, 2=Fahrzeug (2))}
             combined_data[CONF_VEHICLES] = _parse_vehicles_string(vehicle_list)
+            combined_data[ID_PREFIX] = title
 
             return self.async_create_entry(
                 title=title,

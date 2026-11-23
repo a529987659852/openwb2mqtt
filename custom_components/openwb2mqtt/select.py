@@ -15,20 +15,10 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import (
-    OpenWBBaseEntity,
-    OpenWBEntity,
-    async_setup_selects,
-    get_vehicles,
-    is_supported,
-)
+from .common import OpenWBBaseEntity, OpenWBEntity, get_vehicles, is_supported
 from .const import (
-    COMM_METHOD_HTTP,
-    COMMUNICATION_METHOD,
-    DEVICETYPE,
     DOMAIN,
     SELECTS_BY_DEVICE_TYPE,
-    SELECTS_PER_CHARGEPOINT,
     OpenWBSelectEntityDescription,
     openwbDynamicSelectEntityDescription,
     openwbSelectEntityDescription,
@@ -50,70 +40,13 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Initialize the select and the openWB device."""
-    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
-        coordinator = entry.runtime_data
-        descriptions = SELECTS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
-        async_add_entities(
-            OpenWBSelect(coordinator, description, Platform.SELECT)
-            for description in descriptions
-            if is_supported(description, coordinator.transport)
-        )
-        return
-
-    # MQTT setup (legacy entities)
-    config_entry = entry
-    device_type = config_entry.data[DEVICETYPE]
-    if device_type == "chargepoint":
-        regular_selects = [
-            desc
-            for desc in SELECTS_PER_CHARGEPOINT
-            if not isinstance(desc, openwbDynamicSelectEntityDescription)
-        ]
-        dynamic_selects = [
-            desc
-            for desc in SELECTS_PER_CHARGEPOINT
-            if isinstance(desc, openwbDynamicSelectEntityDescription)
-        ]
-
-        def process_chargepoint_selects(
-            description, device_type, device_id, mqtt_root
-        ):
-            if "_chargePointID_" in description.mqttTopicCommand:
-                description.mqttTopicCommand = description.mqttTopicCommand.replace(
-                    "_chargePointID_", str(device_id)
-                )
-            description.mqttTopicCommand = (
-                f"{mqtt_root}/{description.mqttTopicCommand}"
-            )
-            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
-            if description.mqttTopicOptions is not None:
-                description.mqttTopicOptions = [
-                    f"{mqtt_root}/{option}"
-                    for option in description.mqttTopicOptions
-                ]
-
-        await async_setup_selects(
-            hass,
-            config_entry,
-            async_add_entities,
-            regular_selects,
-            "{mqtt_root}/{device_type}/{device_id}/{key}",
-            "Chargepoint",
-            process_chargepoint_selects,
-        )
-
-        if dynamic_selects:
-            entities = [
-                openwbDynamicSelect(
-                    uniqueID=config_entry.unique_id,
-                    description=desc,
-                    device_friendly_name=f"Chargepoint {config_entry.data['DEVICEID']}",
-                    mqtt_root=config_entry.data["mqttroot"],
-                    deviceID=config_entry.data["DEVICEID"],
-                )
-                for desc in dynamic_selects
-            ]
-            async_add_entities(entities)
+    coordinator = entry.runtime_data
+    descriptions = SELECTS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+    async_add_entities(
+        OpenWBSelect(coordinator, description, Platform.SELECT)
+        for description in descriptions
+        if is_supported(description, coordinator.transport)
+    )
 
 
 class OpenWBSelect(OpenWBEntity, SelectEntity):
