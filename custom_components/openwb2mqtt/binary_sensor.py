@@ -9,14 +9,19 @@ from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
     BinarySensorEntity,
 )
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity, async_setup_binary_sensors
+from .common import (
+    OpenWBBaseEntity,
+    OpenWBEntity,
+    async_setup_binary_sensors,
+    is_supported,
+)
 from .const import (
+    BINARY_SENSORS_BY_DEVICE_TYPE,
     BINARY_SENSORS_PER_BATTERY,
     BINARY_SENSORS_PER_CHARGEPOINT,
     BINARY_SENSORS_PER_COUNTER,
@@ -25,162 +30,94 @@ from .const import (
     COMM_METHOD_HTTP,
     COMMUNICATION_METHOD,
     DEVICETYPE,
-    DOMAIN,
-    MANUFACTURER,
+    OpenWBBinarySensorEntityDescription,
+    _to_bool,
     openwbBinarySensorEntityDescription,
 )
-from .coordinator import OpenWB2MqttDataUpdateCoordinator
+from .coordinator import OpenWBConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
+# The coordinator does all updates, so entities never update in parallel
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
-    hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: OpenWBConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up binary sensors for openWB."""
+    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
+        coordinator = entry.runtime_data
+        descriptions = BINARY_SENSORS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+        async_add_entities(
+            OpenWBBinarySensor(coordinator, description, Platform.BINARY_SENSOR)
+            for description in descriptions
+            if is_supported(description, coordinator.transport)
+        )
+        return
+
+    # MQTT setup (legacy entities)
+    config = entry
     device_type = config.data[DEVICETYPE]
-    sensors_to_add = []
-
-    if config.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
-        coordinator = hass.data[DOMAIN][config.entry_id]
-        if device_type == "chargepoint":
-            for description in BINARY_SENSORS_PER_CHARGEPOINT:
-                if description.api_key is None:
-                    continue
-                sensors_to_add.append(
-                    OpenWB2MqttApiBinarySensor(coordinator, description, config)
-                )
-        elif device_type == "counter":
-            for description in BINARY_SENSORS_PER_COUNTER:
-                if description.api_key is None:
-                    continue
-                sensors_to_add.append(
-                    OpenWB2MqttApiBinarySensor(coordinator, description, config)
-                )
-        elif device_type == "bat":
-            for description in BINARY_SENSORS_PER_BATTERY:
-                if description.api_key is None:
-                    continue
-                sensors_to_add.append(
-                    OpenWB2MqttApiBinarySensor(coordinator, description, config)
-                )
-        elif device_type == "pv":
-            for description in BINARY_SENSORS_PER_PVGENERATOR:
-                if description.api_key is None:
-                    continue
-                sensors_to_add.append(
-                    OpenWB2MqttApiBinarySensor(coordinator, description, config)
-                )
-        # Device type vehicle not yet implemented in API
-        # elif device_type == "vehicle":
-        #     for description in BINARY_SENSORS_PER_VEHICLE:
-        #         if description.api_key is None:
-        #             continue
-        #         sensors_to_add.append(
-        #             OpenWB2MqttApiBinarySensor(coordinator, description, config)
-        #         )
-        async_add_entities(sensors_to_add)
-    else:
-        topic_template = "{mqtt_root}/{device_type}/{device_id}/get/{key}"
-        if device_type == "chargepoint":
-            await async_setup_binary_sensors(
-                hass,
-                config,
-                async_add_entities,
-                BINARY_SENSORS_PER_CHARGEPOINT,
-                topic_template,
-                "Chargepoint",
-            )
-        elif device_type == "counter":
-            await async_setup_binary_sensors(
-                hass,
-                config,
-                async_add_entities,
-                BINARY_SENSORS_PER_COUNTER,
-                topic_template,
-                "Counter",
-            )
-        elif device_type == "bat":
-            await async_setup_binary_sensors(
-                hass,
-                config,
-                async_add_entities,
-                BINARY_SENSORS_PER_BATTERY,
-                topic_template,
-                "Battery",
-            )
-        elif device_type == "pv":
-            await async_setup_binary_sensors(
-                hass,
-                config,
-                async_add_entities,
-                BINARY_SENSORS_PER_PVGENERATOR,
-                topic_template,
-                "PV",
-            )
-        elif device_type == "vehicle":
-            await async_setup_binary_sensors(
-                hass,
-                config,
-                async_add_entities,
-                BINARY_SENSORS_PER_VEHICLE,
-                topic_template,
-                "Vehicle",
-            )
+    topic_template = "{mqtt_root}/{device_type}/{device_id}/get/{key}"
+    if device_type == "chargepoint":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_CHARGEPOINT,
+            topic_template,
+            "Chargepoint",
+        )
+    elif device_type == "counter":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_COUNTER,
+            topic_template,
+            "Counter",
+        )
+    elif device_type == "bat":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_BATTERY,
+            topic_template,
+            "Battery",
+        )
+    elif device_type == "pv":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_PVGENERATOR,
+            topic_template,
+            "PV",
+        )
+    elif device_type == "vehicle":
+        await async_setup_binary_sensors(
+            hass,
+            config,
+            async_add_entities,
+            BINARY_SENSORS_PER_VEHICLE,
+            topic_template,
+            "Vehicle",
+        )
 
 
-class OpenWB2MqttApiBinarySensor(CoordinatorEntity, BinarySensorEntity):
-    """Representation of an openWB binary sensor that is updated via API."""
+class OpenWBBinarySensor(OpenWBEntity, BinarySensorEntity):
+    """Binary sensor of a simpleAPI device."""
 
-    entity_description: openwbBinarySensorEntityDescription
-
-    def __init__(
-        self,
-        coordinator: OpenWB2MqttDataUpdateCoordinator,
-        description: openwbBinarySensorEntityDescription,
-        config_entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self.entity_description = description
-        self.config_entry = config_entry
-        self._attr_unique_id = slugify(f"{config_entry.title}_{description.name}")
-        self.entity_id = f"{BINARY_SENSOR_DOMAIN}.{slugify(f'{config_entry.title}_{description.name}')}"
+    entity_description: OpenWBBinarySensorEntityDescription
 
     @property
-    def is_on(self):
-        """Return the state of the sensor."""
-        if self.coordinator.data is None:
-            return None
-        key = self.entity_description.api_key or self.entity_description.key
-        value = self.coordinator.data.get(key)
-
-        if self.entity_description.state:
-            return self.entity_description.state(value)
-
-        if isinstance(value, bool):
-            return value
-
-        if isinstance(value, str):
-            value = value.strip().lower()
-            if value in {"true", "on"}:
-                return True
-            if value in {"false", "off"}:
-                return False
-
-        try:
-            return bool(int(value))
-        except (ValueError, TypeError):
-            return None
-
-    @property
-    def device_info(self):
-        """Return the device info."""
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.title)},
-            "name": self.config_entry.title,
-            "manufacturer": MANUFACTURER,
-        }
+    def is_on(self) -> bool | None:
+        """Return the state of the binary sensor."""
+        return _to_bool(self.get_value())
 
 
 class openwbBinarySensor(OpenWBBaseEntity, BinarySensorEntity):

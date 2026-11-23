@@ -83,7 +83,8 @@
                     "Scheduled Charging": "Zielladen",
                     "Time Charging": "Zeitladen",
                        "Instant Charging": "Sofortladen",
-                    "PV Charging": "PV-Laden"
+                    "PV Charging": "PV-Laden",
+                    "ECO Charging": "Eco"
                 }
             }
 
@@ -124,6 +125,29 @@
                 }
             }
 		}
+    },
+    "exceptions": {
+        "update_failed": {
+            "message": "Fehler bei der Kommunikation mit der openWB: {error}"
+        },
+        "no_data": {
+            "message": "Die Antwort der openWB enthält keine Daten für {key}."
+        },
+        "command_failed": {
+            "message": "Der Befehl {command} konnte nicht an die openWB gesendet werden."
+        },
+        "command_rejected": {
+            "message": "Die openWB hat den Befehl {command} abgelehnt."
+        },
+        "not_available_http": {
+            "message": "Diese Funktion ist über die HTTP-API nicht verfügbar."
+        },
+        "not_available_mqtt": {
+            "message": "Diese Funktion ist über MQTT nicht verfügbar."
+        },
+        "option_not_settable": {
+            "message": "Diese Option kann nicht gesetzt werden."
+        }
     },
     "issues": {
         "unsupported_device_type": {

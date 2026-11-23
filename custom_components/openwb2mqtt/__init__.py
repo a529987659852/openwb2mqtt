@@ -15,13 +15,12 @@ from .const import (
     API_URL,
     COMM_METHOD_HTTP,
     COMMUNICATION_METHOD,
-    DEVICEID,
     DEVICETYPE,
     DOMAIN,
     PLATFORMS,
     REMOVED_DEVICE_TYPES,
 )
-from .coordinator import OpenWB2MqttDataUpdateCoordinator
+from .coordinator import OpenWBConfigEntry, OpenWBHttpCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ def _get_issue_id(entry: ConfigEntry) -> str:
     return f"unsupported_device_type_{entry.entry_id}"
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: OpenWBConfigEntry) -> bool:
     """Set up the openWB2 MQTT integration from a config entry."""
     device_type = entry.data.get(DEVICETYPE)
     if device_type in REMOVED_DEVICE_TYPES:
@@ -52,43 +51,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         return True
 
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
-
     if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
         api_client = OpenWB2MqttApiClient(
             api_url=entry.data[API_URL],
             token=entry.data.get(API_TOKEN),
             session=async_get_clientsession(hass),
         )
-        coordinator = OpenWB2MqttDataUpdateCoordinator(
-            hass,
-            client=api_client,
-            device_type=entry.data[DEVICETYPE],
-            device_id=entry.data[DEVICEID],
-            config_entry=entry,
-        )
+        coordinator = OpenWBHttpCoordinator(hass, entry, api_client)
         await coordinator.async_config_entry_first_refresh()
-        hass.data[DOMAIN][entry.entry_id] = coordinator
-    else:
-        # MQTT setup remains unchanged
-        pass
+        entry.runtime_data = coordinator
+    # MQTT entries still use the legacy entities (no coordinator yet)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: OpenWBConfigEntry) -> bool:
     """Unload a config entry."""
     if entry.data.get(DEVICETYPE) in REMOVED_DEVICE_TYPES:
         # Nothing was set up for removed device types.
         return True
 
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
-
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:

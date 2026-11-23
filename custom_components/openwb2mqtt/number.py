@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from typing import Any
 
 from homeassistant.components import mqtt
 from homeassistant.components.number import (
@@ -16,11 +17,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity, async_setup_numbers
+from .common import OpenWBBaseEntity, OpenWBEntity, async_setup_numbers, is_supported
 from .const import (
     COMM_METHOD_HTTP,
     COMMUNICATION_METHOD,
@@ -28,166 +28,116 @@ from .const import (
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
-    MANUFACTURER,
+    NUMBERS_BY_DEVICE_TYPE,
     NUMBERS_PER_CHARGEPOINT,
+    OpenWBNumberEntityDescription,
+    max_current_for_wallbox_power,
     openwbDynamicNumberEntityDescription,
     openWBNumberEntityDescription,
 )
-from .coordinator import OpenWB2MqttDataUpdateCoordinator
+from .coordinator import OpenWBConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
+# The coordinator does all updates, so entities never update in parallel
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
-    hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: OpenWBConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up number entities for openWB."""
-    device_type = config.data[DEVICETYPE]
-    entities_to_add = []
-
-    if config.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
-        coordinator = hass.data[DOMAIN][config.entry_id]
-        if device_type == "chargepoint":
-            for description in NUMBERS_PER_CHARGEPOINT:
-                if description.api_key is None:
-                    continue
-                entities_to_add.append(
-                    OpenWB2MqttApiNumber(coordinator, description, config)
-                )
-        async_add_entities(entities_to_add)
-    else:
-        if device_type == "chargepoint":
-            regular_numbers = [
-                desc
-                for desc in NUMBERS_PER_CHARGEPOINT
-                if not isinstance(desc, openwbDynamicNumberEntityDescription)
-            ]
-            dynamic_numbers = [
-                desc
-                for desc in NUMBERS_PER_CHARGEPOINT
-                if isinstance(desc, openwbDynamicNumberEntityDescription)
-            ]
-
-            def process_chargepoint_numbers(
-                description, device_type, device_id, mqtt_root
-            ):
-                description.mqttTopicCommand = (
-                    f"{mqtt_root}/{description.mqttTopicCommand}"
-                )
-                description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
-
-            await async_setup_numbers(
-                hass,
-                config,
-                async_add_entities,
-                regular_numbers,
-                "{mqtt_root}/{device_type}/{device_id}/{key}",
-                "Chargepoint",
-                process_chargepoint_numbers,
-            )
-
-            if dynamic_numbers:
-                entities = [
-                    openwbDynamicNumber(
-                        config_entry=config,
-                        uniqueID=config.unique_id,
-                        description=desc,
-                        device_friendly_name=f"Chargepoint {config.data[DEVICEID]}",
-                        mqtt_root=config.data["mqttroot"],
-                        device_id=config.data[DEVICEID],
-                    )
-                    for desc in dynamic_numbers
-                ]
-                async_add_entities(entities)
-
-
-class OpenWB2MqttApiNumber(CoordinatorEntity, NumberEntity):
-    """Entity representing openWB numbers that are updated via API."""
-
-    entity_description: openWBNumberEntityDescription
-
-    def __init__(
-        self,
-        coordinator: OpenWB2MqttDataUpdateCoordinator,
-        description: openWBNumberEntityDescription,
-        config_entry: ConfigEntry,
-    ) -> None:
-        """Initialize the number entity."""
-        super().__init__(coordinator)
-        self.entity_description = description
-        self.config_entry = config_entry
-        self._attr_unique_id = slugify(f"{config_entry.title}_{description.name}")
-        self.entity_id = (
-            f"{NUMBER_DOMAIN}.{slugify(f'{config_entry.title}_{description.name}')}"
+    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
+        coordinator = entry.runtime_data
+        descriptions = NUMBERS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+        async_add_entities(
+            OpenWBNumber(coordinator, description, Platform.NUMBER)
+            for description in descriptions
+            if is_supported(description, coordinator.transport)
         )
+        return
+
+    # MQTT setup (legacy entities)
+    config = entry
+    device_type = config.data[DEVICETYPE]
+    if device_type == "chargepoint":
+        regular_numbers = [
+            desc
+            for desc in NUMBERS_PER_CHARGEPOINT
+            if not isinstance(desc, openwbDynamicNumberEntityDescription)
+        ]
+        dynamic_numbers = [
+            desc
+            for desc in NUMBERS_PER_CHARGEPOINT
+            if isinstance(desc, openwbDynamicNumberEntityDescription)
+        ]
+
+        def process_chargepoint_numbers(
+            description, device_type, device_id, mqtt_root
+        ):
+            description.mqttTopicCommand = (
+                f"{mqtt_root}/{description.mqttTopicCommand}"
+            )
+            description.mqttTopicCurrentValue = f"{mqtt_root}/{device_type}/{device_id}/{description.mqttTopicCurrentValue}"
+
+        await async_setup_numbers(
+            hass,
+            config,
+            async_add_entities,
+            regular_numbers,
+            "{mqtt_root}/{device_type}/{device_id}/{key}",
+            "Chargepoint",
+            process_chargepoint_numbers,
+        )
+
+        if dynamic_numbers:
+            entities = [
+                openwbDynamicNumber(
+                    config_entry=config,
+                    uniqueID=config.unique_id,
+                    description=desc,
+                    device_friendly_name=f"Chargepoint {config.data[DEVICEID]}",
+                    mqtt_root=config.data["mqttroot"],
+                    device_id=config.data[DEVICEID],
+                )
+                for desc in dynamic_numbers
+            ]
+            async_add_entities(entities)
+
+
+class OpenWBNumber(OpenWBEntity, NumberEntity):
+    """Number of a simpleAPI device."""
+
+    entity_description: OpenWBNumberEntityDescription
+    # The openWB does not report every set value back (e.g. some limits),
+    # so the entity keeps the last sent value as a fallback.
+    _last_sent_value: float | None = None
 
     @property
     def native_max_value(self) -> float:
-        """Return the maximum value."""
-        if self.entity_description.key in {
-            "instant_charging_current_control",
-            "pv_charging_min_current_control",
-        }:
-            power = self.config_entry.options.get(
-                CONF_WALLBOX_POWER, self.config_entry.data.get(CONF_WALLBOX_POWER)
+        """Return the maximum value (depends on the wallbox power for currents)."""
+        if self.entity_description.max_from_wallbox_power:
+            entry = self.coordinator.config_entry
+            power = entry.options.get(
+                CONF_WALLBOX_POWER, entry.data.get(CONF_WALLBOX_POWER)
             )
-            if power == "11":
-                return 16
-            return 32
-        return self.entity_description.native_max_value
+            return max_current_for_wallbox_power(power)
+        return super().native_max_value
 
     @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        if self.coordinator.data is None:
-            return None
-        if self.entity_description.api_key:
-            key = self.entity_description.api_key
-        value = self.coordinator.data.get(key)
-        if self.entity_description.api_value_fn:
-            return self.entity_description.api_value_fn(value)
-        return value
+    def native_value(self) -> Any:
+        """Return the current value."""
+        if self.has_value():
+            return self.get_value()
+        return self._last_sent_value
 
     async def async_set_native_value(self, value: float) -> None:
-        """Update the current value."""
-        command_key = self.entity_description.api_key_command
-        state_key = self.entity_description.api_key
-        chargepoint_nr = self.config_entry.data[DEVICEID]
-
-        if not command_key or not state_key:
-            return
-
-        payload = {command_key: str(value), "chargepoint_nr": str(chargepoint_nr)}
-
-        response = await self.coordinator.client.async_set_data(payload)
-        if (
-            response
-            and response.get("success")
-            and "data" in response
-            and command_key in response["data"]
-        ):
-            new_data = self.coordinator.data.copy()
-            if command_key == "instant_charging_amount":
-                try:
-                    new_data[state_key] = 1000 * float(response["data"][command_key])
-                except (ValueError, TypeError):
-                    new_data[state_key] = None
-            else:
-                new_data[state_key] = response["data"][command_key]
-            self.coordinator.async_set_updated_data(new_data)
-            return
-
-        # Fallback to refresh if optimistic update fails
-        await self.coordinator.async_request_refresh()
-
-    @property
-    def device_info(self):
-        """Return the device info."""
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.title)},
-            "name": self.config_entry.title,
-            "manufacturer": MANUFACTURER,
-        }
+        """Send a new value to the openWB."""
+        await self.async_send_value(value)
+        self._last_sent_value = value
+        self.async_write_ha_state()
 
 
 class openWBNumber(OpenWBBaseEntity, NumberEntity):

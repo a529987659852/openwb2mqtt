@@ -85,6 +85,29 @@
             }
         }
     },
+    "exceptions": {
+        "update_failed": {
+            "message": "Error communicating with the openWB: {error}"
+        },
+        "no_data": {
+            "message": "The openWB response contains no data for {key}."
+        },
+        "command_failed": {
+            "message": "The command {command} could not be sent to the openWB."
+        },
+        "command_rejected": {
+            "message": "The openWB rejected the command {command}."
+        },
+        "not_available_http": {
+            "message": "This function is not available over the HTTP API."
+        },
+        "not_available_mqtt": {
+            "message": "This function is not available over MQTT."
+        },
+        "option_not_settable": {
+            "message": "This option cannot be set."
+        }
+    },
     "issues": {
         "unsupported_device_type": {
             "title": "Device type {device_type} is no longer supported",

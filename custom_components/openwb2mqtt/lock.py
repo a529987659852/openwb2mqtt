@@ -4,92 +4,111 @@ from __future__ import annotations
 
 import copy
 import logging
+from typing import Any
 
 from homeassistant.components import mqtt
 from homeassistant.components.lock import DOMAIN as LOCK_DOMAIN, LockEntity
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import slugify
 
-from .common import OpenWBBaseEntity
+from .common import OpenWBBaseEntity, OpenWBEntity, is_supported
 from .const import (
     COMM_METHOD_HTTP,
     COMMUNICATION_METHOD,
     DEVICEID,
     DEVICETYPE,
-    DOMAIN,
+    LOCKS_BY_DEVICE_TYPE,
     LOCKS_PER_CHARGEPOINT,
-    MANUFACTURER,
     MQTT_ROOT_TOPIC,
+    OpenWBLockEntityDescription,
+    _to_bool,
     openwbLockEntityDescription,
 )
-from .coordinator import OpenWB2MqttDataUpdateCoordinator
+from .coordinator import OpenWBConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
+# The coordinator does all updates, so entities never update in parallel
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(
-    hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: OpenWBConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up lock entities for openWB."""
-    communication_method = config.data.get(COMMUNICATION_METHOD)
-    device_type = config.data[DEVICETYPE]
+    if entry.data.get(COMMUNICATION_METHOD) == COMM_METHOD_HTTP:
+        coordinator = entry.runtime_data
+        descriptions = LOCKS_BY_DEVICE_TYPE.get(coordinator.device_type, [])
+        async_add_entities(
+            OpenWBLock(coordinator, description, Platform.LOCK)
+            for description in descriptions
+            if is_supported(description, coordinator.transport)
+        )
+        return
 
+    # MQTT setup (legacy entities)
+    config = entry
+    device_type = config.data[DEVICETYPE]
     entities = []
     descriptions_copy = copy.deepcopy(LOCKS_PER_CHARGEPOINT)
+    integration_unique_id = config.unique_id
+    if not integration_unique_id:
+        _LOGGER.error("Integration unique ID is not set")
+        return
+    mqtt_root = config.data[MQTT_ROOT_TOPIC]
+    device_id = config.data[DEVICEID]
+    device_type_name = "Chargepoint"
 
-    if communication_method == COMM_METHOD_HTTP:
-        coordinator = hass.data[DOMAIN][config.entry_id]
-        if device_type == "chargepoint":
-            for description in descriptions_copy:
-                if description.api_key is None:
-                    continue
-                entities.append(
-                    OpenWbApiLock(
-                        coordinator=coordinator,
-                        description=description,
-                        config_entry=config,
-                    )
+    if device_type == "chargepoint":
+        for description in descriptions_copy:
+            command_topic = f"{mqtt_root}/{description.mqttTopicCommand}"
+            current_value_topic = (
+                f"{mqtt_root}/chargepoint/{description.mqttTopicCurrentValue}"
+            )
+            if "_chargePointID_" in command_topic:
+                command_topic = command_topic.replace(
+                    "_chargePointID_", str(device_id)
                 )
-        async_add_entities(entities)
-    else:  # MQTT
-        integration_unique_id = config.unique_id
-        if not integration_unique_id:
-            _LOGGER.error("Integration unique ID is not set")
-            return
-        mqtt_root = config.data[MQTT_ROOT_TOPIC]
-        device_id = config.data[DEVICEID]
-        device_type_name = "Chargepoint"
+            if "_chargePointID_" in current_value_topic:
+                current_value_topic = current_value_topic.replace(
+                    "_chargePointID_", str(device_id)
+                )
+            _LOGGER.debug("Lock Topic: %s", current_value_topic)
+            entities.append(
+                OpenWbMqttLock(
+                    uniqueID=integration_unique_id,
+                    description=description,
+                    device_friendly_name=f"{device_type_name} {device_id}",
+                    mqtt_root=mqtt_root,
+                    deviceID=device_id,
+                    state_topic=current_value_topic,
+                    command_topic=command_topic,
+                )
+            )
+    async_add_entities(entities)
 
-        if device_type == "chargepoint":
-            for description in descriptions_copy:
-                command_topic = f"{mqtt_root}/{description.mqttTopicCommand}"
-                current_value_topic = (
-                    f"{mqtt_root}/chargepoint/{description.mqttTopicCurrentValue}"
-                )
-                if "_chargePointID_" in command_topic:
-                    command_topic = command_topic.replace(
-                        "_chargePointID_", str(device_id)
-                    )
-                if "_chargePointID_" in current_value_topic:
-                    current_value_topic = current_value_topic.replace(
-                        "_chargePointID_", str(device_id)
-                    )
-                _LOGGER.debug("Lock Topic: %s", current_value_topic)
-                entities.append(
-                    OpenWbMqttLock(
-                        uniqueID=integration_unique_id,
-                        description=description,
-                        device_friendly_name=f"{device_type_name} {device_id}",
-                        mqtt_root=mqtt_root,
-                        deviceID=device_id,
-                        state_topic=current_value_topic,
-                        command_topic=command_topic,
-                    )
-                )
-        async_add_entities(entities)
+
+class OpenWBLock(OpenWBEntity, LockEntity):
+    """Lock of a simpleAPI device."""
+
+    entity_description: OpenWBLockEntityDescription
+
+    @property
+    def is_locked(self) -> bool | None:
+        """Return True if the lock is locked."""
+        return _to_bool(self.get_value())
+
+    async def async_lock(self, **kwargs: Any) -> None:
+        """Lock the device."""
+        await self.async_send_value(True)
+
+    async def async_unlock(self, **kwargs: Any) -> None:
+        """Unlock the device."""
+        await self.async_send_value(False)
 
 
 class OpenWbMqttLock(OpenWBBaseEntity, LockEntity):
@@ -161,87 +180,3 @@ class OpenWbMqttLock(OpenWBBaseEntity, LockEntity):
         """Unsubscribe from MQTT when entity is removed."""
         if hasattr(self, "_unsubscribe_state") and self._unsubscribe_state:
             self._unsubscribe_state()
-
-
-class OpenWbApiLock(CoordinatorEntity[OpenWB2MqttDataUpdateCoordinator], LockEntity):
-    """Representation of an openWB Lock via API."""
-
-    entity_description: openwbLockEntityDescription
-
-    def __init__(
-        self,
-        coordinator: OpenWB2MqttDataUpdateCoordinator,
-        description: openwbLockEntityDescription,
-        config_entry: ConfigEntry,
-    ) -> None:
-        """Initialize the lock entity."""
-        super().__init__(coordinator)
-        self.entity_description = description
-        self.config_entry = config_entry
-        if self.entity_description.name:
-            self._attr_unique_id = slugify(
-                f"{config_entry.title}-{self.entity_description.name}"
-            )
-            self.entity_id = f"{LOCK_DOMAIN}.{slugify(f'{config_entry.title}-{self.entity_description.name}')}"
-
-    @property
-    def is_locked(self) -> bool | None:
-        """Return true if the lock is locked."""
-        if self.entity_description.api_key and self.coordinator.data:
-            return self.coordinator.data.get(self.entity_description.api_key)
-        return None
-
-    @property
-    def device_info(self):
-        """Return the device info."""
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.title)},
-            "name": self.config_entry.title,
-            "manufacturer": MANUFACTURER,
-        }
-
-    async def async_lock(self, **kwargs) -> None:
-        """Lock the device via API."""
-        await self._async_set_lock_state("lock")
-
-    async def async_unlock(self, **kwargs) -> None:
-        """Unlock the device via API."""
-        await self._async_set_lock_state("unlock")
-
-    async def _async_set_lock_state(self, state: str) -> None:
-        """Set the lock state via API."""
-        command_key = self.entity_description.api_key_command
-        state_key = self.entity_description.api_key
-
-        if (
-            not command_key
-            or not state_key
-            or not self.entity_description.api_value_map_command
-        ):
-            return
-
-        value = self.entity_description.api_value_map_command.get(state)
-        if value is None:
-            return
-
-        payload = {
-            command_key: str(value),
-            "chargepoint_nr": str(self.config_entry.data[DEVICEID]),
-        }
-
-        response = await self.coordinator.client.async_set_data(payload)
-        if (
-            response
-            and response.get("success")
-            and "data" in response
-            and command_key in response["data"]
-        ):
-            new_data = self.coordinator.data.copy()
-            # API returns "1" or "0", convert to boolean for the state
-            new_value = response["data"][command_key] == "1"
-            new_data[state_key] = new_value
-            self.coordinator.async_set_updated_data(new_data)
-            return
-
-        # Fallback to refresh if optimistic update fails
-        await self.coordinator.async_request_refresh()
