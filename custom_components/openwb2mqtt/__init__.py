@@ -78,6 +78,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: OpenWBConfigEntry) -> bo
         entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if isinstance(coordinator, OpenWBMqttCoordinator):
+        # Entity setup set the name "Chargepoint N"; use the openWB name if
+        # the retained messages arrived first
+        coordinator.update_device_info()
     return True
 
 
