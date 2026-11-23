@@ -2646,3 +2646,305 @@ PV_BINARY_SENSORS: list[OpenWBBinarySensorEntityDescription] = [
         value_fn=_to_bool,
     ),
 ]
+
+# Option lists of the limit selects ("Begrenzung"), shared by Sofortladen and PV-Laden
+LIMIT_OPTIONS = ["Keine", "SoC", "Energiemenge"]
+LIMIT_VALUE_MAP = {"none": "Keine", "soc": "SoC", "amount": "Energiemenge"}
+LIMIT_COMMAND_MAP = {"Keine": "none", "SoC": "soc", "Energiemenge": "amount"}
+
+CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
+    OpenWBNumberEntityDescription(
+        key="manual_soc",
+        value_key="soc/soc",
+        name="Aktueller SoC (Manuelles SoC Modul)",
+        http_command="manual_soc",
+        supports_mqtt=False,
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=NumberDeviceClass.BATTERY,
+        native_min_value=0.0,
+        native_max_value=100.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="instant_charging_current_control",
+        value_key="instant_charging_current",  # MQTT: shows the last sent value
+        name="Soll-Ladestrom (Sofortladen)",
+        http_command="chargecurrent",
+        mqtt_command="set/chargepoint/{device_id}/chargecurrent",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=NumberDeviceClass.CURRENT,
+        icon="mdi:current-ac",
+        native_min_value=6.0,
+        native_max_value=32.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        max_from_wallbox_power=True,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="pv_charging_min_current_control",
+        value_key="minimal_permanent_current",
+        name="Min. Dauerstrom (PV-Laden)",
+        http_command="minimal_permanent_current",
+        mqtt_command="set/chargepoint/{device_id}/minimal_permanent_current",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=NumberDeviceClass.CURRENT,
+        icon="mdi:current-ac",
+        native_min_value=0.0,
+        native_max_value=32.0,
+        native_step=1.0,
+        entity_category=EntityCategory.CONFIG,
+        max_from_wallbox_power=True,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="instant_charging_energy_limit_control",
+        value_key="instant_charging_limit_amount",
+        name="Energie-Limit (Sofortladen)",
+        http_command="instant_charging_amount",
+        mqtt_command="set/instant_charging_limit_amount",  # API converts kWh -> Wh itself
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=NumberDeviceClass.ENERGY,
+        native_min_value=1,
+        native_max_value=50,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="instant_charging_soc_limit_control",
+        value_key="instant_charging_limit_soc",
+        name="SoC-Limit (Sofortladen)",
+        http_command="instant_charging_soc",
+        mqtt_command="set/instant_charging_limit_soc",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=NumberDeviceClass.BATTERY,
+        native_min_value=5,
+        native_max_value=100,
+        native_step=5,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="price_based_charging_max_price",
+        value_key="max_price_eco",
+        name="Max. Preis (Strompreisbasiertes Laden)",
+        # Both set commands take ct/kWh; the coordinators convert from/to EUR/kWh
+        http_command="max_price_eco",
+        mqtt_command="set/chargepoint/{device_id}/max_price_eco",
+        native_unit_of_measurement=PRICE_UNIT,
+        icon="mdi:currency-eur",
+        native_min_value=-1.0,
+        native_max_value=2.0,
+        native_step=0.01,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="minimal_pv_soc",
+        value_key="minimal_pv_soc",  # Spec unclear: HTTP key not confirmed
+        name="Min. SoC (PV-Laden)",
+        http_command="minimal_pv_soc",
+        mqtt_command="set/chargepoint/{device_id}/minimal_pv_soc",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=NumberDeviceClass.BATTERY,
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="pv_charging_limit_soc",
+        value_key="pv_charging_limit_soc",  # MQTT: shows the last sent value
+        name="SoC-Limit (PV-Laden)",
+        http_command="pv_charging_soc",
+        mqtt_command="set/pv_charging_limit_soc",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=NumberDeviceClass.BATTERY,
+        native_min_value=5,
+        native_max_value=100,
+        native_step=5,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+    OpenWBNumberEntityDescription(
+        key="pv_charging_limit_amount",
+        value_key="pv_charging_limit_amount",  # MQTT: shows the last sent value
+        name="Energie-Limit (PV-Laden)",
+        http_command="pv_charging_amount",
+        mqtt_command="set/pv_charging_limit_amount",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=NumberDeviceClass.ENERGY,
+        native_min_value=1,
+        native_max_value=50,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+]
+
+BATTERY_NUMBERS: list[OpenWBNumberEntityDescription] = [
+    OpenWBNumberEntityDescription(
+        key="bat_power_reserve",
+        value_key="bat_power_reserve",  # no read value: shows the last sent value
+        name="Reservierte Speicherleistung",
+        http_command="bat_power_reserve",
+        mqtt_command="set/bat_power_reserve",  # global
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=NumberDeviceClass.POWER,
+        # Spec unclear: no range given
+        native_min_value=0,
+        native_max_value=10000,
+        native_step=100,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_safeFloat,
+    ),
+]
+
+CHARGEPOINT_SELECTS: list[OpenWBSelectEntityDescription] = [
+    OpenWBSelectEntityDescription(
+        key="instant_charging_limitation",
+        value_key="instant_charging_limit",
+        name="Begrenzung (Sofortladen)",
+        http_command="instant_charging_limit",
+        mqtt_command="set/instant_charging_limit",  # acts on the lowest chargepoint ID
+        translation_key="selector_chargepoint_dynamic_chargemode",
+        entity_category=EntityCategory.CONFIG,
+        options=LIMIT_OPTIONS,
+        value_map=LIMIT_VALUE_MAP,
+        command_map=LIMIT_COMMAND_MAP,
+    ),
+    OpenWBSelectEntityDescription(
+        key="chargemode",
+        value_key="chargemode",
+        name="Lademodus",
+        http_command="set_chargemode",
+        mqtt_command="set/chargepoint/{device_id}/chargemode",
+        translation_key="selector_chargepoint_chargemode",
+        entity_category=EntityCategory.CONFIG,
+        # No "Standby": it cannot be set, so the state is unknown during standby
+        options=[
+            "Instant Charging",
+            "PV Charging",
+            "ECO Charging",
+            "Target Charging",
+            "Stop",
+        ],
+        value_map={
+            "instant_charging": "Instant Charging",
+            "instant": "Instant Charging",
+            "pv_charging": "PV Charging",
+            "pv": "PV Charging",
+            "eco_charging": "ECO Charging",
+            "eco": "ECO Charging",
+            "scheduled_charging": "Target Charging",
+            "target": "Target Charging",
+            "stop": "Stop",
+        },
+        command_map={
+            "Instant Charging": "instant",
+            "PV Charging": "pv",
+            "ECO Charging": "eco",
+            "Target Charging": "target",
+            "Stop": "stop",
+        },
+    ),
+    OpenWBSelectEntityDescription(
+        key="connected_vehicle",
+        value_key="vehicle_name",
+        name="Angeschlossenes Fahrzeug",
+        # The options are the vehicle names from the options flow; the
+        # command sends the id of the chosen vehicle
+        http_command="vehicle",
+        supports_mqtt=False,
+        translation_key="selector_connected_vehicle",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=False,
+    ),
+    OpenWBSelectEntityDescription(
+        key="pv_charging_limit",
+        value_key="pv_charging_limit",  # Spec unclear: HTTP key; MQTT: last sent value
+        name="Begrenzung (PV-Laden)",
+        http_command="pv_charging_limit",
+        mqtt_command="set/pv_charging_limit",  # acts on the lowest chargepoint ID
+        entity_category=EntityCategory.CONFIG,
+        options=LIMIT_OPTIONS,
+        value_map=LIMIT_VALUE_MAP,
+        command_map=LIMIT_COMMAND_MAP,
+    ),
+]
+
+BATTERY_SELECTS: list[OpenWBSelectEntityDescription] = [
+    OpenWBSelectEntityDescription(
+        key="bat_mode",
+        value_key="bat_mode",  # no read value: shows the last sent value
+        name="Speicherbeachtung",
+        http_command="bat_mode",
+        mqtt_command="set/bat_mode",  # global
+        entity_category=EntityCategory.CONFIG,
+        options=["Speicher-Mindest-SoC", "Fahrzeuge", "Speicher"],
+        value_map={
+            "min_soc_bat_mode": "Speicher-Mindest-SoC",
+            "ev_mode": "Fahrzeuge",
+            "bat_mode": "Speicher",
+        },
+        command_map={
+            "Speicher-Mindest-SoC": "min_soc_bat_mode",
+            "Fahrzeuge": "ev_mode",
+            "Speicher": "bat_mode",
+        },
+    ),
+]
+
+CHARGEPOINT_LOCKS: list[OpenWBLockEntityDescription] = [
+    OpenWBLockEntityDescription(
+        key="manual_lock",
+        value_key="manual_lock",
+        name="Manuelle Sperre",
+        http_command="chargepoint_lock",  # 1 / 0
+        mqtt_command="set/chargepoint/{device_id}/chargepoint_lock",  # true / false
+        translation_key="manual_lock",
+        entity_category=EntityCategory.CONFIG,
+        value_fn=_to_bool,
+    ),
+]
+
+# Which descriptions belong to which device type ("chargepoint", "counter", "bat", "pv").
+# An empty list means the device type has no entities of that platform.
+SENSORS_BY_DEVICE_TYPE: dict[str, list[OpenWBSensorEntityDescription]] = {
+    "chargepoint": CHARGEPOINT_SENSORS,
+    "counter": COUNTER_SENSORS,
+    "bat": BATTERY_SENSORS,
+    "pv": PV_SENSORS,
+}
+
+BINARY_SENSORS_BY_DEVICE_TYPE: dict[str, list[OpenWBBinarySensorEntityDescription]] = {
+    "chargepoint": CHARGEPOINT_BINARY_SENSORS,
+    "counter": COUNTER_BINARY_SENSORS,
+    "bat": BATTERY_BINARY_SENSORS,
+    "pv": PV_BINARY_SENSORS,
+}
+
+NUMBERS_BY_DEVICE_TYPE: dict[str, list[OpenWBNumberEntityDescription]] = {
+    "chargepoint": CHARGEPOINT_NUMBERS,
+    "counter": [],
+    "bat": BATTERY_NUMBERS,
+    "pv": [],
+}
+
+SELECTS_BY_DEVICE_TYPE: dict[str, list[OpenWBSelectEntityDescription]] = {
+    "chargepoint": CHARGEPOINT_SELECTS,
+    "counter": [],
+    "bat": BATTERY_SELECTS,
+    "pv": [],
+}
+
+LOCKS_BY_DEVICE_TYPE: dict[str, list[OpenWBLockEntityDescription]] = {
+    "chargepoint": CHARGEPOINT_LOCKS,
+    "counter": [],
+    "bat": [],
+    "pv": [],
+}
