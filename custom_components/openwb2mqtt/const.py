@@ -110,18 +110,18 @@ HTTP_RESPONSE_PREFIX = {
 HTTP_KEY_RENAMES = {
     "chargepoint": {
         "connected_vehicle_name": "vehicle_name",
-        "config_name": "config/name",  # Spec unclear: not in the HTTP spec, seen on 2.2.3
+        "config_name": "config/name",  # delivered by get_chargepoint_all (from chargepoint config)
         "soc": "soc/soc",
         "soc_timestamp": "soc/timestamp",
         "range_charged": "soc/range_charged",
         "pv_charging_min_current": "minimal_permanent_current",
         "instant_charging_amount": "instant_charging_limit_amount",
         "instant_charging_soc": "instant_charging_limit_soc",
-        "pv_charging_amount": "pv_charging_limit_amount",  # Spec unclear: not delivered by 2.2.3
-        "pv_charging_soc": "pv_charging_limit_soc",  # Spec unclear: not delivered by 2.2.3
+        "pv_charging_amount": "pv_charging_limit_amount",  # delivered by get_chargepoint_all (Wh)
+        "pv_charging_soc": "pv_charging_limit_soc",  # delivered by get_chargepoint_all (%)
     },
 }
-# HTTP delivers these values in Wh, MQTT in kWh
+# HTTP reads Wh, writes kWh; MQTT uses kWh both ways
 HTTP_WH_KEYS = ["instant_charging_limit_amount", "pv_charging_limit_amount"]
 # Both transports deliver these prices in ct/kWh (simpleAPI x100000), the entities show EUR/kWh
 CENT_KEYS = ["max_price_eco"]
@@ -503,6 +503,8 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
     ),
     OpenWBSensorEntityDescription(
         key="evse_current",
+        # MQTT: the daemon writes get/evse_current and set/current to the same
+        # topic, so the value can flip
         value_key="evse_current",
         name="Ladestromvorgabe",
         device_class=SensorDeviceClass.CURRENT,
@@ -597,7 +599,7 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         native_unit_of_measurement=UnitOfFrequency.HERTZ,
         value_fn=_safeFloat,
     ),
-    # Spec unclear: MQTT has no topic for the chargepoint name
+    # MQTT: config/name, HTTP: config_name
     OpenWBSensorEntityDescription(
         key="config/name",
         value_key="config/name",
@@ -774,7 +776,7 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         entity_category=EntityCategory.DIAGNOSTIC,
         supports_http=False,
     ),
-    # Spec unclear: HTTP may not deliver rfid_timestamp
+    # Both transports deliver rfid_timestamp
     OpenWBSensorEntityDescription(
         key="rfid_timestamp",
         value_key="rfid_timestamp",
@@ -1159,7 +1161,8 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
         value_key="instant_charging_limit_amount",
         name="Energie-Limit (Sofortladen)",
         http_command="instant_charging_amount",
-        mqtt_command="set/instant_charging_limit_amount",  # API converts kWh -> Wh itself
+        # API converts kWh -> Wh itself; MQTT: acts on the lowest chargepoint ID
+        mqtt_command="set/instant_charging_limit_amount",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=NumberDeviceClass.ENERGY,
         native_min_value=1,
@@ -1173,9 +1176,10 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
         value_key="instant_charging_limit_soc",
         name="SoC-Limit (Sofortladen)",
         http_command="instant_charging_soc",
-        mqtt_command="set/instant_charging_limit_soc",
+        mqtt_command="set/instant_charging_limit_soc",  # MQTT: acts on the lowest chargepoint ID
         native_unit_of_measurement=PERCENTAGE,
         device_class=NumberDeviceClass.BATTERY,
+        # API accepts 0..100; HA keeps 5..100 step 5
         native_min_value=5,
         native_max_value=100,
         native_step=5,
@@ -1199,7 +1203,9 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
     ),
     OpenWBNumberEntityDescription(
         key="minimal_pv_soc",
-        value_key="minimal_pv_soc",  # Spec unclear: HTTP key not confirmed
+        # HTTP has no getter (write only), so HTTP shows the last sent value;
+        # MQTT reads minimal_pv_soc
+        value_key="minimal_pv_soc",
         name="Min. SoC (PV-Laden)",
         http_command="minimal_pv_soc",
         mqtt_command="set/chargepoint/{device_id}/minimal_pv_soc",
@@ -1213,12 +1219,13 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
     ),
     OpenWBNumberEntityDescription(
         key="pv_charging_limit_soc",
-        value_key="pv_charging_limit_soc",  # MQTT: shows the last sent value
+        value_key="pv_charging_limit_soc",  # read on both transports
         name="SoC-Limit (PV-Laden)",
         http_command="pv_charging_soc",
-        mqtt_command="set/pv_charging_limit_soc",
+        mqtt_command="set/pv_charging_limit_soc",  # MQTT: acts on the lowest chargepoint ID
         native_unit_of_measurement=PERCENTAGE,
         device_class=NumberDeviceClass.BATTERY,
+        # API accepts 0..100; HA keeps 5..100 step 5
         native_min_value=5,
         native_max_value=100,
         native_step=5,
@@ -1227,10 +1234,10 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
     ),
     OpenWBNumberEntityDescription(
         key="pv_charging_limit_amount",
-        value_key="pv_charging_limit_amount",  # MQTT: shows the last sent value
+        value_key="pv_charging_limit_amount",  # read on both transports
         name="Energie-Limit (PV-Laden)",
         http_command="pv_charging_amount",
-        mqtt_command="set/pv_charging_limit_amount",
+        mqtt_command="set/pv_charging_limit_amount",  # MQTT: acts on the lowest chargepoint ID
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=NumberDeviceClass.ENERGY,
         native_min_value=1,
@@ -1250,7 +1257,7 @@ BATTERY_NUMBERS: list[OpenWBNumberEntityDescription] = [
         mqtt_command="set/bat_power_reserve",  # global
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=NumberDeviceClass.POWER,
-        # Spec unclear: no range given
+        # API: integer W >= 0, no upper limit; 10000 is our own bound
         native_min_value=0,
         native_max_value=10000,
         native_step=100,
@@ -1288,6 +1295,8 @@ CHARGEPOINT_SELECTS: list[OpenWBSelectEntityDescription] = [
             "Target Charging",
             "Stop",
         ],
+        # Read values are the long names; the short names are only aliases
+        # of the set commands
         value_map={
             "instant_charging": "Instant Charging",
             "instant": "Instant Charging",
@@ -1321,7 +1330,7 @@ CHARGEPOINT_SELECTS: list[OpenWBSelectEntityDescription] = [
     ),
     OpenWBSelectEntityDescription(
         key="pv_charging_limit",
-        value_key="pv_charging_limit",  # Spec unclear: HTTP key; MQTT: last sent value
+        value_key="pv_charging_limit",  # read on both transports
         name="Begrenzung (PV-Laden)",
         http_command="pv_charging_limit",
         mqtt_command="set/pv_charging_limit",  # acts on the lowest chargepoint ID
@@ -1357,7 +1366,7 @@ BATTERY_SELECTS: list[OpenWBSelectEntityDescription] = [
 CHARGEPOINT_LOCKS: list[OpenWBLockEntityDescription] = [
     OpenWBLockEntityDescription(
         key="manual_lock",
-        value_key="manual_lock",
+        value_key="manual_lock",  # read: manual_lock (from set/manual_lock)
         name="Manuelle Sperre",
         http_command="chargepoint_lock",  # 1 / 0
         mqtt_command="set/chargepoint/{device_id}/chargepoint_lock",  # true / false

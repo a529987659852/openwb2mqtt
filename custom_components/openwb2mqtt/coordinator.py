@@ -188,7 +188,7 @@ class OpenWBMqttCoordinator(OpenWBCoordinator):
     def _message_received(self, message: ReceiveMessage) -> None:
         """Store the value of one topic."""
         key = message.topic.removeprefix(self.topic_prefix)
-        # Spec unclear: bat/pv/counter may keep "get/" (I2)
+        # Chargepoint topics have no get/, counter/bat/pv/consumer keep it (simpleAPI daemon)
         key = key.removeprefix("get/")
         value = parse_mqtt_payload(message.payload)
         # MQTT delivers ct/kWh, like HTTP; the entities show EUR/kWh
