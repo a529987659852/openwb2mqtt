@@ -79,7 +79,7 @@ MODEL = "openWB"
 ID_PREFIX = "id_prefix"
 
 # Device types of the simpleAPI
-SUPPORTED_DEVICE_TYPES = ["chargepoint", "counter", "bat", "pv"]
+SUPPORTED_DEVICE_TYPES = ["chargepoint", "counter", "bat", "pv", "consumer"]
 # Device types that older versions of this integration supported
 REMOVED_DEVICE_TYPES = ["controller", "vehicle"]
 # Readable names, also used in the legacy MQTT device identifiers
@@ -88,6 +88,7 @@ DEVICE_TYPE_NAMES = {
     "counter": "Counter",
     "bat": "Battery",
     "pv": "PV",
+    "consumer": "Consumer",
 }
 
 # HTTP API (simpleAPI)
@@ -98,6 +99,7 @@ HTTP_READ_PARAMETER = {
     "counter": "get_counter",
     "bat": "get_battery",
     "pv": "get_pv",
+    "consumer": "get_consumer",
 }
 # The answer contains the key f"{prefix}_{device_id}", per device type
 HTTP_RESPONSE_PREFIX = {
@@ -105,6 +107,7 @@ HTTP_RESPONSE_PREFIX = {
     "counter": "counter",
     "bat": "battery",
     "pv": "pv",
+    "consumer": "consumer",
 }
 # HTTP key -> MQTT topic name, so that both transports use the same value keys
 HTTP_KEY_RENAMES = {
@@ -122,6 +125,9 @@ HTTP_KEY_RENAMES = {
         # "limit" is a dict, so it arrives flattened as limit/message and limit/limiting_value
         "limit/message": "control_parameter/limit/message",
         "limit/limiting_value": "control_parameter/limit/limiting_value",
+    },
+    "consumer": {
+        "usage_type": "usage/type",
     },
 }
 # HTTP reads Wh, writes kWh; MQTT uses kWh both ways
@@ -153,6 +159,7 @@ DEVICE_TYPE_SELECTOR = SelectSelector(
             SelectOptionDict(value="chargepoint", label="Chargepoint"),
             SelectOptionDict(value="pv", label="PV Generator"),
             SelectOptionDict(value="bat", label="Battery"),
+            SelectOptionDict(value="consumer", label="Consumer"),
         ],
         mode=SelectSelectorMode.DROPDOWN,
         translation_key="config_selector_devicetype",  # translation is maintained in translations/<lang>.json via this translation_key
@@ -1162,6 +1169,120 @@ PV_BINARY_SENSORS: list[OpenWBBinarySensorEntityDescription] = [
     ),
 ]
 
+CONSUMER_SENSORS: list[OpenWBSensorEntityDescription] = [
+    OpenWBSensorEntityDescription(
+        key="power",
+        value_key="power",
+        name="Leistung",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        icon="mdi:power-plug",
+        value_fn=_safeNumber,
+    ),
+    *_phase_sensors(
+        "powers",
+        "Leistung",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        entity_registry_enabled_default=False,
+    ),
+    *_phase_sensors(
+        "currents",
+        "Strom",
+        device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        icon="mdi:current-ac",
+        entity_registry_enabled_default=False,
+    ),
+    *_phase_sensors(
+        "voltages",
+        "Spannung",
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        icon="mdi:sine-wave",
+        entity_registry_enabled_default=False,
+    ),
+    OpenWBSensorEntityDescription(
+        key="imported",
+        value_key="imported",
+        name="Importierte Energie (Gesamt)",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=_rounded_kwh,
+    ),
+    OpenWBSensorEntityDescription(
+        key="exported",
+        value_key="exported",
+        name="Exportierte Energie (Gesamt)",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        entity_registry_enabled_default=False,
+        suggested_display_precision=0,
+        value_fn=_rounded_kwh,
+    ),
+    OpenWBSensorEntityDescription(
+        key="daily_imported",
+        value_key="daily_imported",
+        name="Importierte Energie (Heute)",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=1,
+        value_fn=_rounded_kwh,
+    ),
+    # No value_fn: sensor.py picks the icon from the number of phases
+    OpenWBSensorEntityDescription(
+        key="phases_in_use",
+        value_key="phases_in_use",
+        name="Aktive Phasen",
+    ),
+    OpenWBSensorEntityDescription(
+        key="state_str",
+        value_key="state_str",
+        name="Status",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_umlauteEinfuegen,
+    ),
+    OpenWBSensorEntityDescription(
+        key="fault_str",
+        value_key="fault_str",
+        name="Fehlerbeschreibung",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_shorten_text,
+    ),
+    OpenWBSensorEntityDescription(
+        key="usage/type",
+        value_key="usage/type",
+        name="Verwendungsart",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+]
+
+CONSUMER_BINARY_SENSORS: list[OpenWBBinarySensorEntityDescription] = [
+    OpenWBBinarySensorEntityDescription(
+        key="charge_state",
+        value_key="charge_state",
+        name="Aktiv",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        value_fn=_to_bool,
+    ),
+    OpenWBBinarySensorEntityDescription(
+        key="fault_state",
+        value_key="fault_state",
+        name="Fehler",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_to_bool,
+    ),
+]
+
 # Option lists of the limit selects ("Begrenzung"), shared by Sofortladen and PV-Laden
 LIMIT_OPTIONS = ["Keine", "SoC", "Energiemenge"]
 LIMIT_VALUE_MAP = {"none": "Keine", "soc": "SoC", "amount": "Energiemenge"}
@@ -1434,13 +1555,15 @@ CHARGEPOINT_LOCKS: list[OpenWBLockEntityDescription] = [
     ),
 ]
 
-# Which descriptions belong to which device type ("chargepoint", "counter", "bat", "pv").
+# Which descriptions belong to which device type ("chargepoint", "counter", "bat", "pv",
+# "consumer").
 # An empty list means the device type has no entities of that platform.
 SENSORS_BY_DEVICE_TYPE: dict[str, list[OpenWBSensorEntityDescription]] = {
     "chargepoint": CHARGEPOINT_SENSORS,
     "counter": COUNTER_SENSORS,
     "bat": BATTERY_SENSORS,
     "pv": PV_SENSORS,
+    "consumer": CONSUMER_SENSORS,
 }
 
 BINARY_SENSORS_BY_DEVICE_TYPE: dict[str, list[OpenWBBinarySensorEntityDescription]] = {
@@ -1448,6 +1571,7 @@ BINARY_SENSORS_BY_DEVICE_TYPE: dict[str, list[OpenWBBinarySensorEntityDescriptio
     "counter": COUNTER_BINARY_SENSORS,
     "bat": BATTERY_BINARY_SENSORS,
     "pv": PV_BINARY_SENSORS,
+    "consumer": CONSUMER_BINARY_SENSORS,
 }
 
 NUMBERS_BY_DEVICE_TYPE: dict[str, list[OpenWBNumberEntityDescription]] = {
@@ -1455,6 +1579,7 @@ NUMBERS_BY_DEVICE_TYPE: dict[str, list[OpenWBNumberEntityDescription]] = {
     "counter": [],
     "bat": BATTERY_NUMBERS,
     "pv": [],
+    "consumer": [],
 }
 
 SELECTS_BY_DEVICE_TYPE: dict[str, list[OpenWBSelectEntityDescription]] = {
@@ -1462,6 +1587,7 @@ SELECTS_BY_DEVICE_TYPE: dict[str, list[OpenWBSelectEntityDescription]] = {
     "counter": [],
     "bat": BATTERY_SELECTS,
     "pv": [],
+    "consumer": [],
 }
 
 LOCKS_BY_DEVICE_TYPE: dict[str, list[OpenWBLockEntityDescription]] = {
@@ -1469,4 +1595,5 @@ LOCKS_BY_DEVICE_TYPE: dict[str, list[OpenWBLockEntityDescription]] = {
     "counter": [],
     "bat": [],
     "pv": [],
+    "consumer": [],
 }

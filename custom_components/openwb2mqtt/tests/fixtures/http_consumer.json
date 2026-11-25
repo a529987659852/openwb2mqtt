@@ -1,0 +1,29 @@
+{
+  "consumer_0": {
+    "usage_type": "meter_only",
+    "power": 35.2,
+    "currents": [
+      0.8,
+      0.73,
+      0.73
+    ],
+    "voltages": [
+      230.1,
+      229.8,
+      230.4
+    ],
+    "powers": [
+      18.4,
+      8.4,
+      8.4
+    ],
+    "imported": 123456.7,
+    "exported": 0,
+    "daily_imported": 845.3,
+    "phases_in_use": 3,
+    "charge_state": true,
+    "state_str": "Messwerte des Verbrauchers werden erfasst.",
+    "fault_str": "Kein Fehler.",
+    "fault_state": 0
+  }
+}

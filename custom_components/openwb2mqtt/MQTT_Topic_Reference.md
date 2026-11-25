@@ -9,7 +9,7 @@ The classic `openWB/...` topics (for example `openWB/chargepoint/1/get/power`) a
 | Placeholder | Meaning |
 |---|---|
 | `{root}` | MQTT root topic from the integration setup. Default: `openWB` |
-| `{id}` | Device ID in openWB (chargepoint, counter, battery or PV ID) |
+| `{id}` | Device ID in openWB (chargepoint, counter, battery, PV or consumer ID) |
 
 Example: with the default root and chargepoint ID 3, the key `power` is read from
 `openWB/simpleAPI/chargepoint/3/power`.
@@ -18,10 +18,10 @@ Example: with the default root and chargepoint ID 3, the key `power` is read fro
 
 - For each configured device, the integration subscribes to
   `{root}/simpleAPI/{type}/{id}/#` (QoS 1). `{type}` is one of
-  `chargepoint`, `counter`, `bat` or `pv`.
+  `chargepoint`, `counter`, `bat`, `pv` or `consumer`.
 - The part after `{root}/simpleAPI/{type}/{id}/` is the **key**. The tables below list these keys.
 - If a key starts with `get/`, this part is ignored (so `get/power` is the same as `power`).
-  Chargepoint topics have no `get/`; counter, bat and pv topics keep `get/`.
+  Chargepoint topics have no `get/`; counter, bat, pv and consumer topics keep `get/`.
 - Values with three phases are sent as separate topics, for example
   `currents/1`, `currents/2`, `currents/3`.
 - When `config/name` or `version` arrives, the device name or software version
@@ -108,6 +108,22 @@ available with the HTTP API.
 | `daily_exported` / `monthly_exported` / `yearly_exported` | Energy today / this month / this year | Wh |
 | `imported` | Total energy imported (MQTT only) | Wh |
 | `fault_str` / `fault_state` | Fault text / fault state | |
+
+### Consumer – `{root}/simpleAPI/consumer/{id}/<key>`
+
+| Key | Meaning | Notes |
+|---|---|---|
+| `power` | Power | W |
+| `powers/1` … `powers/3` | Power per phase | W |
+| `currents/1` … `currents/3` | Current per phase | A |
+| `voltages/1` … `voltages/3` | Voltage per phase | V |
+| `imported` / `exported` | Total energy imported / exported | Wh |
+| `daily_imported` | Energy imported today | Wh |
+| `phases_in_use` | Phases in use | |
+| `charge_state` | Consumer is active | true / false |
+| `state_str` | Status text | |
+| `fault_str` / `fault_state` | Fault text / fault state | |
+| `usage/type` | Usage type, e.g. `meter_only` | |
 
 ## How the integration writes values
 

@@ -37,6 +37,7 @@ DEVICES: dict[str, int] = {
     "counter": 0,
     "bat": 1,
     "pv": 5,
+    "consumer": 0,
 }
 
 

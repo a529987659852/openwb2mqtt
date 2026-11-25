@@ -34,7 +34,7 @@
                 "data_description": {
                     "api_token": "Optional. Only required if the simpleAPI of your openWB is protected with a token."
                 },
-                "description": "Enter a prefix that uniquely identifies the openWB.\n*If you migrate from MQTT to the API interface, enter the MQTT root topic here and the integration creates the sensors etc. with the same IDs.*\n\nAdjust the IP address and select the device type.\nFor the device types counter, chargepoint, PV system and battery, the device ID is also required. You can find it on the status tab of your openWB.",
+                "description": "Enter a prefix that uniquely identifies the openWB.\n*If you migrate from MQTT to the API interface, enter the MQTT root topic here and the integration creates the sensors etc. with the same IDs.*\n\nAdjust the IP address and select the device type.\nFor the device types counter, chargepoint, PV system, battery and consumer, the device ID is also required. You can find it on the status tab of your openWB.",
                 "title": "API settings for openWB"
             },
             "details_mqtt": {
@@ -43,7 +43,7 @@
                     "DEVICETYPE": "Device type",
                     "DEVICEID": "Device ID in openWB (-> status tab)"
                 },
-                "description": "The integration uses the simpleAPI of the openWB (openWB version 2.1.9 or newer). Bridge the topic openWB/simpleAPI/# from the openWB to your MQTT server.\n\nEnter the MQTT root topic under which the openWB can be reached on your MQTT server and select the device type.\nFor the device types counter, chargepoint, PV system and battery, the device ID is also required. You can find it on the status tab of your openWB.",
+                "description": "The integration uses the simpleAPI of the openWB (openWB version 2.1.9 or newer). Bridge the topic openWB/simpleAPI/# from the openWB to your MQTT server.\n\nEnter the MQTT root topic under which the openWB can be reached on your MQTT server and select the device type.\nFor the device types counter, chargepoint, PV system, battery and consumer, the device ID is also required. You can find it on the status tab of your openWB.",
                 "title": "MQTT settings for openWB"
             },
             "chargepoint": {
@@ -80,7 +80,8 @@
                 "counter": "Counter",
                 "chargepoint": "Chargepoint",
                 "pv": "PV system",
-                "bat": "Battery"
+                "bat": "Battery",
+                "consumer": "Consumer"
             }
         }
     },

@@ -41,6 +41,7 @@ DEVICES: dict[str, tuple[int, str]] = {
     "counter": (0, "?get_counter=0"),
     "bat": (1, "?get_battery=1"),
     "pv": (5, "?get_pv=5"),
+    "consumer": (0, "?get_consumer=0"),
 }
 
 
