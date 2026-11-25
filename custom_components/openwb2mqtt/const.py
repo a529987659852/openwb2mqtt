@@ -112,7 +112,7 @@ HTTP_KEY_RENAMES = {
         "connected_vehicle_name": "vehicle_name",
         "config_name": "config/name",  # delivered by get_chargepoint_all (from chargepoint config)
         "soc": "soc/soc",
-        "soc_timestamp": "soc/timestamp",
+        "soc_timestamp": "pro_soc_timestamp",  # openWB Pro timestamp (get/soc_timestamp)
         "range_charged": "soc/range_charged",
         "pv_charging_min_current": "minimal_permanent_current",
         "instant_charging_amount": "instant_charging_limit_amount",
@@ -666,6 +666,7 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=_extractTimestamp,
+        supports_http=False,  # HTTP has no vehicle SoC timestamp
     ),
     OpenWBSensorEntityDescription(
         key="rfid",
@@ -724,8 +725,8 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=PERCENTAGE,
+        # HTTP sends 0 instead of null without an openWB Pro
         value_fn=_safeFloat,
-        supports_http=False,
     ),
     OpenWBSensorEntityDescription(
         key="pro_soc_timestamp",
@@ -735,7 +736,6 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=_extractTimestamp,
-        supports_http=False,
     ),
     OpenWBSensorEntityDescription(
         key="charging_current",

@@ -539,11 +539,20 @@
     dict({
       'device_class': <SensorDeviceClass.TIMESTAMP: 'timestamp'>,
       'disabled_by_default': <RegistryEntryDisabler.INTEGRATION: 'integration'>,
-      'entity_id': 'sensor.openwb_chargepoint_6_soc_datenaktualisierung',
-      'original_name': 'SoC-Datenaktualisierung',
+      'entity_id': 'sensor.openwb_chargepoint_6_soc_datenaktualisierung_openwb_pro',
+      'original_name': 'SoC-Datenaktualisierung (openWB Pro)',
       'state': 'unknown',
-      'unique_id': 'openwb_chargepoint_6_soc_datenaktualisierung',
+      'unique_id': 'openwb_chargepoint_6_soc_datenaktualisierung_openwb_pro',
       'unit_of_measurement': None,
+    }),
+    dict({
+      'device_class': <SensorDeviceClass.BATTERY: 'battery'>,
+      'disabled_by_default': None,
+      'entity_id': 'sensor.openwb_chargepoint_6_soc_openwb_pro',
+      'original_name': 'SoC (openWB Pro)',
+      'state': '0.0',
+      'unique_id': 'openwb_chargepoint_6_soc_openwb_pro',
+      'unit_of_measurement': '%',
     }),
     dict({
       'device_class': <SensorDeviceClass.CURRENT: 'current'>,
