@@ -4,3 +4,15 @@
 .DS_Store
 *.xlsx
 custom_components/openwb2mqtt/api_spec.txt
+custom_components/openwb2mqtt/Authenticator.php
+custom_components/openwb2mqtt/CLAUDE.md
+custom_components/openwb2mqtt/MqttClient.php
+custom_components/openwb2mqtt/MqttClientSimple.php
+custom_components/openwb2mqtt/OPEN_ITEMS.md
+custom_components/openwb2mqtt/ParameterHandler.php
+custom_components/openwb2mqtt/REFACTOR_PLAN.md
+custom_components/openwb2mqtt/REFACTOR_PLAN_2.md
+custom_components/openwb2mqtt/simpleapi.php
+custom_components/openwb2mqtt/simpleAPI_mqtt.py
+custom_components/openwb2mqtt/SPEC_simpleAPIHTTP.md
+custom_components/openwb2mqtt/SPEC_simpleAPIMQTT.md
