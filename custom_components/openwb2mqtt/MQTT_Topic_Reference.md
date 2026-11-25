@@ -1,7 +1,8 @@
 # MQTT Topic Reference
 
 This page lists every MQTT topic that the integration uses when you connect over **MQTT**.
-The integration only uses the **simpleAPI** of openWB (openWB 2.1.9 or newer, simpleAPI revision 2).
+The integration only uses the **simpleAPI** of openWB. Please keep your openWB up to date: older
+versions of the simpleAPI deliver some values in other units or not at all (tested with openWB 2.3.0-RC.2).
 The classic `openWB/...` topics (for example `openWB/chargepoint/1/get/power`) are **not** used anymore.
 
 ## Placeholders
@@ -13,6 +14,23 @@ The classic `openWB/...` topics (for example `openWB/chargepoint/1/get/power`) a
 
 Example: with the default root and chargepoint ID 3, the key `power` is read from
 `openWB/simpleAPI/chargepoint/3/power`.
+
+## Bridge
+
+If Home Assistant uses its own MQTT broker (for example the Mosquitto add-on), bridge the
+simpleAPI topics between the openWB and your broker (see `mosquittoExampleConfiguration.conf`):
+
+```
+# Import: values from the openWB to Home Assistant
+topic openWB/simpleAPI/# in 2
+
+# Export: commands from Home Assistant to the openWB
+topic openWB/simpleAPI/set/# out 2
+```
+
+- Without the import line, the entities show no values.
+- Without the export line, the controls do nothing (read-only setup).
+- If you use another root topic than `openWB`, replace it in both lines.
 
 ## How the integration reads values
 
@@ -161,6 +179,10 @@ Notes:
   `set/pv_charging_limit*` always change the chargepoint with the lowest ID. An ID in the
   topic is ignored. The entities on other chargepoints keep showing their own (unchanged)
   value. The HTTP API uses `chargepoint_nr` and is not affected.
+  The daemon takes the lowest ID from **all** retained `openWB/chargepoint/{id}/...` topics,
+  including leftovers of a deleted chargepoint. If such a leftover has a lower ID, the
+  limit setters do nothing at all. Check with MQTT Explorer (for example
+  `openWB/chargepoint/4/set/change_ev_permitted` without any other topics of chargepoint 4).
 - **Failed chargepoint commands are cleared:** the daemon clears `set/chargepoint/...`
   topics even when the command failed (for example an invalid value, or the charge
   template is not cached yet). For entities without a read topic (target current),
