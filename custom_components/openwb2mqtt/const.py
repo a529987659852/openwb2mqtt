@@ -200,6 +200,19 @@ WALLBOX_POWER_FIELD = {
     ),
 }
 
+# Reconfigure (HTTP API only): only the connection can be changed. Prefix,
+# device type and device ID make up the unique ID of the entry and of all
+# entities, so they stay as they are.
+DATA_SCHEMA_RECONFIGURE_API = vol.Schema(
+    {
+        vol.Required(API_URL): cv.string,
+        vol.Optional(API_TOKEN): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Optional(CONF_VERIFY_SSL, default=True): cv.boolean,
+    }
+)
+
 DATA_SCHEMA_OPTIONS_CP_MQTT = vol.Schema(WALLBOX_POWER_FIELD)
 
 DATA_SCHEMA_OPTIONS_CP = vol.Schema(

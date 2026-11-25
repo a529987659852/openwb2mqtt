@@ -23,6 +23,7 @@ Version 2.0.0 is a major rework. Please read this before you update.
     *   Charge limitation message and reason, openWB Pro SoC, serial number and software version
 *   **Fixes**, among others: ECO and Target Charging now show and work correctly, Standby is no longer offered (it cannot be set), counter power can be used in the Energy dashboard, empty values no longer cause errors.
 *   **New options:** optional API token and an option to turn off the SSL certificate check (for openWB with user management).
+*   **Reconfigure for API entries:** change the API URL, token or SSL check later, for example after a new IP address, without losing your entities.
 *   **Some entities are no longer provided** on one or both connection methods, because the simpleAPI does not deliver them (see [5.6](#56-entities-that-are-no-longer-provided)). They stay in Home Assistant as "unavailable"; you can delete them.
 
 ---
@@ -81,6 +82,15 @@ The simpleAPI is documented [here](https://wiki.openwb.de/doku.php?id=openwb:vc:
 6.  **Device type and Device ID:** choose the device (Chargepoint, Counter, PV Generator, Battery, Consumer) and enter its ID.
 
 The integration checks the connection and the device ID before it creates the entry.
+
+#### Changing the connection later
+If the IP address of your openWB changes, or you want to change the API token or the SSL certificate check, you don't need to delete the entry:
+
+1.  Go to **Settings > Devices & Services > openWB**.
+2.  Open the menu (⋮) of the entry and choose **Reconfigure**.
+3.  Change the API URL, the API token or "Verify SSL certificate". Leave the token field empty to remove the token.
+
+The integration checks the new connection and reloads. The API prefix, device type and device ID cannot be changed here, because they define the entity IDs; for that, create a new entry. MQTT entries have nothing to reconfigure: the connection to the broker is managed by the MQTT integration.
 
 ### 4.2 MQTT Configuration
 
@@ -200,6 +210,7 @@ For a video overview of the API setup and the migration, click below (recorded w
     *   Open `http://<IP of your openWB>/openWB/simpleAPI/simpleapi.php?get_chargepoint_all=<ID>` in a browser. If you don't get values, the simpleAPI is not available; update your openWB.
     *   Check the API URL (only replace the host) and the API token.
     *   HTTPS with a self-signed certificate: turn off "Verify SSL certificate".
+*   **The IP address of my openWB changed.** Use **Reconfigure** on the entry (see [4.1](#41-api-http-configuration-recommended)) and enter the new API URL.
 *   **"The openWB does not know a device of this type with this ID."** Check the device ID on the status page of your openWB.
 *   **"The MQTT integration is not set up."** Set up the MQTT integration first, or use the API method.
 *   **MQTT: no values.** Check that your bridge contains `topic openWB/simpleAPI/# in 2` and that you restarted the broker. In MQTT Explorer, you should see topics below `openWB/simpleAPI/`.

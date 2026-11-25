@@ -2,7 +2,9 @@
     "config": {
         "abort": {
             "already_configured": "This integration is already configured. Enter a different MQTT root topic/prefix, select a different device type or enter a different device ID.",
-            "mqtt_not_configured": "The MQTT integration is not set up. Set up the MQTT integration first or use the HTTP API."
+            "mqtt_not_configured": "The MQTT integration is not set up. Set up the MQTT integration first or use the HTTP API.",
+            "reconfigure_successful": "The connection was changed and the integration was reloaded.",
+            "reconfigure_not_supported_mqtt": "There is nothing to reconfigure for MQTT: the connection to the broker is managed by the MQTT integration of Home Assistant. MQTT root topic, device type and device ID define the IDs of all entities – to change them, please create a new entry."
         },
         "error": {
             "invalid_vehicle_list": "The vehicle list is invalid. Use the format ID=name, separated by commas, and use every ID and every name only once.",
@@ -49,6 +51,20 @@
                 },
                 "description": "Enter the max. charging power of your wallbox (required) and the list of vehicles (optional) as a comma-separated list.\nEnter the vehicle list in the following format:\n\n\tvehicle ID=vehicle name,vehicle ID=vehicle name\n\nMake sure that the vehicle names match the values configured in the openWB *exactly*. Only then are the vehicles shown correctly in the vehicle selection list.\nYou can find the vehicle ID on the status tab of the openWB.",
                 "title": "Chargepoint settings"
+            },
+            "reconfigure": {
+                "data": {
+                    "api_url": "API URL",
+                    "api_token": "API token",
+                    "verify_ssl": "Verify SSL certificate"
+                },
+                "data_description": {
+                    "api_url": "Full URL of the simpleAPI, e.g. {example_url}",
+                    "api_token": "Optional. Leave empty if the simpleAPI is not protected with a token.",
+                    "verify_ssl": "Only turn off for HTTPS with a self-signed certificate (e.g. openWB with user management)."
+                },
+                "description": "Change the connection for **{entry_title}**, e.g. after the IP address changed.\nAPI prefix, device type and device ID cannot be changed, because they define the IDs of all entities.",
+                "title": "Change API connection"
             }
         }
     },

@@ -36,6 +36,7 @@ from .const import (
     DATA_SCHEMA_MQTT,
     DATA_SCHEMA_OPTIONS_CP,
     DATA_SCHEMA_OPTIONS_CP_MQTT,
+    DATA_SCHEMA_RECONFIGURE_API,
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
@@ -250,6 +251,60 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="chargepoint",
             data_schema=data_schema,
             errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the connection of an HTTP entry, e.g. after a new IP address.
+
+        Ported from PR #98. Only API URL, token and SSL check can be changed.
+        Prefix, device type and device ID define the entity IDs, so they stay.
+        """
+        entry = self._get_reconfigure_entry()
+
+        # Old v0.3.x entries have no communication method and are MQTT entries.
+        # For MQTT, the connection is managed by the MQTT integration.
+        if entry.data.get(COMMUNICATION_METHOD, COMM_METHOD_MQTT) != COMM_METHOD_HTTP:
+            return self.async_abort(reason="reconfigure_not_supported_mqtt")
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            new_data = dict(entry.data)
+            new_data[API_URL] = user_input[API_URL].strip()
+            new_data[CONF_VERIFY_SSL] = user_input.get(CONF_VERIFY_SSL, True)
+            token = user_input.get(API_TOKEN)
+            if token:
+                new_data[API_TOKEN] = token
+            else:
+                # An empty token field removes the token
+                new_data.pop(API_TOKEN, None)
+
+            # Same check as in the config flow: connection and device ID
+            error = await self._async_check_api(new_data)
+            if error is not None:
+                errors["base"] = error
+            else:
+                return self.async_update_reload_and_abort(entry, data=new_data)
+
+        if user_input is not None:
+            suggested_values = user_input
+        else:
+            suggested_values = {
+                API_URL: entry.data.get(API_URL, ""),
+                API_TOKEN: entry.data.get(API_TOKEN, ""),
+                CONF_VERIFY_SSL: entry.data.get(CONF_VERIFY_SSL, True),
+            }
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                DATA_SCHEMA_RECONFIGURE_API, suggested_values
+            ),
+            errors=errors,
+            description_placeholders={
+                "entry_title": entry.title,
+                "example_url": "http://openwb.local/openWB/simpleAPI/simpleapi.php",
+            },
         )
 
     def _get_title(self, user_input: dict[str, Any]) -> str:
