@@ -119,6 +119,9 @@ HTTP_KEY_RENAMES = {
         "instant_charging_soc": "instant_charging_limit_soc",
         "pv_charging_amount": "pv_charging_limit_amount",  # delivered by get_chargepoint_all (Wh)
         "pv_charging_soc": "pv_charging_limit_soc",  # delivered by get_chargepoint_all (%)
+        # "limit" is a dict, so it arrives flattened as limit/message and limit/limiting_value
+        "limit/message": "control_parameter/limit/message",
+        "limit/limiting_value": "control_parameter/limit/limiting_value",
     },
 }
 # HTTP reads Wh, writes kWh; MQTT uses kWh both ways
@@ -785,6 +788,39 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=_extractTimestamp,
+    ),
+    # Why the charging power is limited right now. Both values are null
+    # (state unknown) when no limit is active.
+    OpenWBSensorEntityDescription(
+        key="control_parameter/limit/message",
+        value_key="control_parameter/limit/message",
+        name="Ladebegrenzung (Meldung)",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_shorten_text,
+    ),
+    # Plain text, no enum: the possible values are not defined by the simpleAPI
+    OpenWBSensorEntityDescription(
+        key="control_parameter/limit/limiting_value",
+        value_key="control_parameter/limit/limiting_value",
+        name="Ladebegrenzung (Grund)",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=_shorten_text,
+    ),
+    # Minimum current of the active charge mode; the MQTT daemon does not publish it
+    OpenWBSensorEntityDescription(
+        key="min_current",
+        value_key="min_current",
+        name="Mindeststrom (Lademodus)",
+        device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        icon="mdi:current-ac",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        suggested_display_precision=1,
+        value_fn=_safeFloat,
+        supports_mqtt=False,
     ),
 ]
 

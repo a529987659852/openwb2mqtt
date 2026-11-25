@@ -62,12 +62,15 @@ Example: with the default root and chargepoint ID 3, the key `power` is read fro
 | `pv_charging_limit` | Limit (PV charging) | none, soc, amount |
 | `pv_charging_limit_soc` | SoC limit (PV charging) | % |
 | `pv_charging_limit_amount` | Energy limit (PV charging) | kWh |
+| `control_parameter/limit/message` | Why the charging power is limited | text, empty (unknown) when no limit is active |
+| `control_parameter/limit/limiting_value` | Reason code of the limit | text, empty (unknown) when no limit is active |
 | `charging_current` / `charging_power` / `charging_voltage` | Charging values | A / W / V |
 | `serial_number` | Serial number | |
 | `version` | Software version | used as device version |
 
 Some chargepoint entities (charge template name, instant charging current sensor,
-manual SoC, connected vehicle select) are only available with the HTTP API.
+minimum current of the charge mode, manual SoC, connected vehicle select) are only
+available with the HTTP API.
 
 ### Counter – `{root}/simpleAPI/counter/{id}/<key>`
 

@@ -19,8 +19,8 @@
     "state_str": "Keine Ladung, da kein Auto angesteckt ist.",
     "fault_str": "Kein Fehler.",
     "limit": {
-      "message": null,
-      "limiting_value": null
+      "message": "Begrenzung durch Dimmen per Direktsteuerung",
+      "limiting_value": "dimming_via_direct_control"
     },
     "fault_state": 0,
     "imported": 890836.98,

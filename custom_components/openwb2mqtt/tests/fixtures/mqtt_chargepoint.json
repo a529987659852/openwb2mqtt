@@ -84,6 +84,14 @@
     "0.0"
   ],
   [
+    "openWB/simpleAPI/chargepoint/6/control_parameter/limit/limiting_value",
+    "dimming_via_direct_control"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/control_parameter/limit/message",
+    "Begrenzung durch Dimmen per Direktsteuerung"
+  ],
+  [
     "openWB/simpleAPI/chargepoint/6/daily_exported",
     "0"
   ],
