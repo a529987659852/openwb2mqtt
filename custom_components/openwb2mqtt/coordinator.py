@@ -1,7 +1,5 @@
 """Data update coordinator for the openWB2 MQTT integration."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 import logging
 from typing import Any
@@ -14,10 +12,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api_client import (
-    OpenWB2MqttApiClient,
-    OpenWB2MqttApiClientError,
-)
+from .api_client import OpenWB2MqttApiClient, OpenWB2MqttApiClientError
 from .const import (
     CENT_KEYS,
     COMM_METHOD_MQTT,

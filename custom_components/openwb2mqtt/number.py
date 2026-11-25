@@ -1,8 +1,5 @@
 """OpenWB Number Entity."""
 
-from __future__ import annotations
-
-import logging
 from typing import Any
 
 from homeassistant.components.number import NumberEntity
@@ -18,8 +15,6 @@ from .const import (
     max_current_for_wallbox_power,
 )
 from .coordinator import OpenWBConfigEntry
-
-_LOGGER = logging.getLogger(__name__)
 
 # The coordinator does all updates, so entities never update in parallel
 PARALLEL_UPDATES = 0

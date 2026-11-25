@@ -1,8 +1,5 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
 
-from __future__ import annotations
-
-import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -26,8 +23,6 @@ from .const import (
     get_id_prefix,
 )
 from .coordinator import OpenWBCoordinator
-
-_LOGGER = logging.getLogger(__name__)
 
 
 def build_device_info(entry: ConfigEntry) -> DeviceInfo:

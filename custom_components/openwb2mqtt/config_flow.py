@@ -1,7 +1,5 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
 
-from __future__ import annotations
-
 from typing import Any
 
 import voluptuous as vol

@@ -1,9 +1,5 @@
 """OpenWB Selector."""
 
-from __future__ import annotations
-
-import logging
-
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -11,14 +7,8 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .common import OpenWBEntity, get_vehicles, is_supported
-from .const import (
-    DOMAIN,
-    SELECTS_BY_DEVICE_TYPE,
-    OpenWBSelectEntityDescription,
-)
+from .const import DOMAIN, SELECTS_BY_DEVICE_TYPE, OpenWBSelectEntityDescription
 from .coordinator import OpenWBConfigEntry
-
-_LOGGER = logging.getLogger(__name__)
 
 # The coordinator does all updates, so entities never update in parallel
 PARALLEL_UPDATES = 0

@@ -1,9 +1,5 @@
 """The openwbmqtt component for controlling the openWB wallbox via home assistant / MQTT."""
 
-from __future__ import annotations
-
-import logging
-
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -16,8 +12,6 @@ from .const import (
     _to_bool,
 )
 from .coordinator import OpenWBConfigEntry
-
-_LOGGER = logging.getLogger(__name__)
 
 # The coordinator does all updates, so entities never update in parallel
 PARALLEL_UPDATES = 0

@@ -1,8 +1,5 @@
 """OpenWB Lock Entity."""
 
-from __future__ import annotations
-
-import logging
 from typing import Any
 
 from homeassistant.components.lock import LockEntity
@@ -11,14 +8,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .common import OpenWBEntity, is_supported
-from .const import (
-    LOCKS_BY_DEVICE_TYPE,
-    OpenWBLockEntityDescription,
-    _to_bool,
-)
+from .const import LOCKS_BY_DEVICE_TYPE, OpenWBLockEntityDescription, _to_bool
 from .coordinator import OpenWBConfigEntry
-
-_LOGGER = logging.getLogger(__name__)
 
 # The coordinator does all updates, so entities never update in parallel
 PARALLEL_UPDATES = 0
