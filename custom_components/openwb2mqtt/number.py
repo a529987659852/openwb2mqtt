@@ -12,6 +12,7 @@ from .const import (
     CONF_WALLBOX_POWER,
     NUMBERS_BY_DEVICE_TYPE,
     OpenWBNumberEntityDescription,
+    _whole_number,
     max_current_for_wallbox_power,
 )
 from .coordinator import OpenWBConfigEntry
@@ -58,8 +59,14 @@ class OpenWBNumber(OpenWBEntity, NumberEntity):
     def native_value(self) -> Any:
         """Return the current value."""
         if self.has_value():
-            return self.get_value()
-        return self._last_sent_value
+            value = self.get_value()
+        else:
+            value = self._last_sent_value
+        if self.unit_of_measurement != self.native_unit_of_measurement:
+            # The user chose another unit: keep the float, so the unit
+            # conversion of Home Assistant keeps the decimals
+            return value
+        return _whole_number(value, self.native_step)
 
     async def async_set_native_value(self, value: float) -> None:
         """Send a new value to the openWB."""

@@ -249,6 +249,18 @@ def _safeNumber(x: Any) -> int | float | None:
     return _safeFloat(x)
 
 
+def _whole_number(value: Any, step: float | None) -> Any:
+    """Return 50 instead of 50.0 if the number only uses whole steps.
+
+    Numbers with a step like 0.01 (prices) keep their decimals.
+    """
+    if step is None or not float(step).is_integer():
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
 def _umlauteEinfuegen(x: str) -> str:
     if x is None:
         return ""
