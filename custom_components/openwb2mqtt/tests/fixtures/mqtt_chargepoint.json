@@ -204,6 +204,18 @@
     "null"
   ],
   [
+    "openWB/simpleAPI/chargepoint/6/pv_charging_limit",
+    "soc"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/pv_charging_limit_amount",
+    "50.0"
+  ],
+  [
+    "openWB/simpleAPI/chargepoint/6/pv_charging_limit_soc",
+    "80"
+  ],
+  [
     "openWB/simpleAPI/chargepoint/6/rfid",
     "null"
   ],

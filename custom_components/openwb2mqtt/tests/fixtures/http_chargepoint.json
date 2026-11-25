@@ -16,8 +16,12 @@
       0,
       0
     ],
-    "state_str": "\"Keine Ladung, da kein Auto angesteckt ist.\"",
-    "fault_str": "\"Kein Fehler.\"",
+    "state_str": "Keine Ladung, da kein Auto angesteckt ist.",
+    "fault_str": "Kein Fehler.",
+    "limit": {
+      "message": null,
+      "limiting_value": null
+    },
     "fault_state": 0,
     "imported": 890836.98,
     "exported": 0,
@@ -47,6 +51,9 @@
     "instant_charging_limit": "amount",
     "instant_charging_amount": 10000,
     "instant_charging_soc": 50,
+    "pv_charging_limit": "soc",
+    "pv_charging_amount": 50000,
+    "pv_charging_soc": 80,
     "max_price_eco": 35,
     "soc": 17,
     "range_charged": 0,
