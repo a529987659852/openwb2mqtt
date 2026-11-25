@@ -21,6 +21,7 @@ Example: with the default root and chargepoint ID 3, the key `power` is read fro
   `chargepoint`, `counter`, `bat` or `pv`.
 - The part after `{root}/simpleAPI/{type}/{id}/` is the **key**. The tables below list these keys.
 - If a key starts with `get/`, this part is ignored (so `get/power` is the same as `power`).
+  Chargepoint topics have no `get/`; counter, bat and pv topics keep `get/`.
 - Values with three phases are sent as separate topics, for example
   `currents/1`, `currents/2`, `currents/3`.
 - When `config/name` or `version` arrives, the device name or software version
@@ -45,7 +46,7 @@ Example: with the default root and chargepoint ID 3, the key `power` is read fro
 | `plug_state` | Vehicle plugged in | true / false |
 | `charge_state` | Vehicle is charging | true / false |
 | `manual_lock` | Chargepoint manually locked | true / false |
-| `chargemode` | Charge mode | instant, pv, eco, target, stop, ... |
+| `chargemode` | Charge mode | instant_charging, pv_charging, eco_charging, scheduled_charging, time_charging, stop, standby (the short names instant, pv, eco, target are write only) |
 | `config/name` | Chargepoint name | used as device name |
 | `vehicle_id` / `vehicle_name` | Connected vehicle | |
 | `soc/soc` / `soc/timestamp` | Vehicle SoC and its time | % |
@@ -54,10 +55,13 @@ Example: with the default root and chargepoint ID 3, the key `power` is read fro
 | `rfid` / `rfid_timestamp` | Last RFID tag and its time | |
 | `minimal_permanent_current` | Min. permanent current (PV charging) | A |
 | `minimal_pv_soc` | Min. SoC (PV charging) | % |
-| `max_price_eco` | Max. price (eco charging) | arrives in €/Wh, shown in €/kWh |
+| `max_price_eco` | Max. price (eco charging) | arrives in ct/kWh, shown in €/kWh |
 | `instant_charging_limit` | Limit (instant charging) | none, soc, amount |
 | `instant_charging_limit_soc` | SoC limit (instant charging) | % |
 | `instant_charging_limit_amount` | Energy limit (instant charging) | kWh |
+| `pv_charging_limit` | Limit (PV charging) | none, soc, amount |
+| `pv_charging_limit_soc` | SoC limit (PV charging) | % |
+| `pv_charging_limit_amount` | Energy limit (PV charging) | kWh |
 | `charging_current` / `charging_power` / `charging_voltage` | Charging values | A / W / V |
 | `serial_number` | Serial number | |
 | `version` | Software version | used as device version |
@@ -105,30 +109,45 @@ manual SoC, connected vehicle select) are only available with the HTTP API.
 When you change a number, select or lock entity, the integration publishes the new value to a
 `{root}/simpleAPI/set/...` topic (QoS 0, not retained). The payload is plain text.
 
-| Topic | Entity | Payload |
-|---|---|---|
-| `{root}/simpleAPI/set/chargepoint/{id}/chargemode` | Charge mode (select) | `instant`, `pv`, `eco`, `target`, `stop` |
-| `{root}/simpleAPI/set/chargepoint/{id}/chargecurrent` | Target current, instant charging (number) | Ampere, e.g. `16` |
-| `{root}/simpleAPI/set/chargepoint/{id}/minimal_permanent_current` | Min. permanent current, PV charging (number) | Ampere, e.g. `6` |
-| `{root}/simpleAPI/set/chargepoint/{id}/minimal_pv_soc` | Min. SoC, PV charging (number) | Percent, e.g. `20` |
-| `{root}/simpleAPI/set/chargepoint/{id}/max_price_eco` | Max. price, eco charging (number) | ct/kWh (the entity shows €/kWh) |
-| `{root}/simpleAPI/set/chargepoint/{id}/chargepoint_lock` | Manual lock (lock) | `true` / `false` |
-| `{root}/simpleAPI/set/instant_charging_limit` | Limit, instant charging (select) | `none`, `soc`, `amount` |
-| `{root}/simpleAPI/set/instant_charging_limit_soc` | SoC limit, instant charging (number) | Percent, e.g. `80` |
-| `{root}/simpleAPI/set/instant_charging_limit_amount` | Energy limit, instant charging (number) | kWh, e.g. `25` |
-| `{root}/simpleAPI/set/pv_charging_limit` | Limit, PV charging (select) | `none`, `soc`, `amount` |
-| `{root}/simpleAPI/set/pv_charging_limit_soc` | SoC limit, PV charging (number) | Percent, e.g. `80` |
-| `{root}/simpleAPI/set/pv_charging_limit_amount` | Energy limit, PV charging (number) | kWh, e.g. `25` |
-| `{root}/simpleAPI/set/bat_mode` | Battery mode (battery select) | `min_soc_bat_mode`, `ev_mode`, `bat_mode` |
-| `{root}/simpleAPI/set/bat_power_reserve` | Reserved battery power (battery number) | Watt |
+| Topic | Entity | Payload | Range |
+|---|---|---|---|
+| `{root}/simpleAPI/set/chargepoint/{id}/chargemode` | Charge mode (select) | `instant`, `pv`, `eco`, `target`, `stop` | – |
+| `{root}/simpleAPI/set/chargepoint/{id}/chargecurrent` | Target current, instant charging (number) | Ampere, e.g. `16` | integer A |
+| `{root}/simpleAPI/set/chargepoint/{id}/minimal_permanent_current` | Min. permanent current, PV charging (number) | Ampere, e.g. `6` | integer A |
+| `{root}/simpleAPI/set/chargepoint/{id}/minimal_pv_soc` | Min. SoC, PV charging (number) | Percent, e.g. `20` | integer % |
+| `{root}/simpleAPI/set/chargepoint/{id}/max_price_eco` | Max. price, eco charging (number) | ct/kWh (the entity shows €/kWh) | number |
+| `{root}/simpleAPI/set/chargepoint/{id}/chargepoint_lock` | Manual lock (lock) | `true` / `false` | – |
+| `{root}/simpleAPI/set/instant_charging_limit` | Limit, instant charging (select) | `none`, `soc`, `amount` | – |
+| `{root}/simpleAPI/set/instant_charging_limit_soc` | SoC limit, instant charging (number) | Percent, e.g. `80` | integer 0–100 |
+| `{root}/simpleAPI/set/instant_charging_limit_amount` | Energy limit, instant charging (number) | kWh, e.g. `25` | integer 1–50 kWh |
+| `{root}/simpleAPI/set/pv_charging_limit` | Limit, PV charging (select) | `none`, `soc`, `amount` | – |
+| `{root}/simpleAPI/set/pv_charging_limit_soc` | SoC limit, PV charging (number) | Percent, e.g. `80` | integer 0–100 |
+| `{root}/simpleAPI/set/pv_charging_limit_amount` | Energy limit, PV charging (number) | kWh, e.g. `25` | integer 1–50 kWh |
+| `{root}/simpleAPI/set/bat_mode` | Battery mode (battery select) | `min_soc_bat_mode`, `ev_mode`, `bat_mode` | – |
+| `{root}/simpleAPI/set/bat_power_reserve` | Reserved battery power (battery number) | Watt | integer ≥ 0 W, no upper limit (the Home Assistant slider stops at 10 000) |
 
 Notes:
 
 - Topics without `chargepoint/{id}` act on the chargepoint with the **lowest ID**
   (or on the whole openWB, for `bat_mode` and `bat_power_reserve`).
-- Some set topics have no matching read topic (target current, PV charging limits,
-  battery mode and reserved battery power). These entities show the **last value sent**
-  from Home Assistant, not the value currently stored in openWB.
+- Only target current (instant charging), battery mode and reserved battery power have
+  no read topic. These entities show the **last value sent** from Home Assistant, not
+  the value currently stored in openWB.
+
+## Known behaviour of the simpleAPI daemon
+
+- **Limit setters act on the lowest chargepoint ID:** `set/instant_charging_limit*` and
+  `set/pv_charging_limit*` always change the chargepoint with the lowest ID. An ID in the
+  topic is ignored. The entities on other chargepoints keep showing their own (unchanged)
+  value. The HTTP API uses `chargepoint_nr` and is not affected.
+- **Failed chargepoint commands are cleared:** the daemon clears `set/chargepoint/...`
+  topics even when the command failed (for example an invalid value, or the charge
+  template is not cached yet). For entities without a read topic (target current),
+  Home Assistant may show a value that openWB never accepted. Check the daemon log.
+- **Failed limit and battery commands stay on their set topic.** Home Assistant publishes
+  them non-retained, so they are not repeated. Do not publish them retained by hand.
+- **`evse_current` has two sources:** it is fed by `get/evse_current` and `set/current`,
+  so "Ladestromvorgabe" can switch between both values.
 
 ## Example
 
