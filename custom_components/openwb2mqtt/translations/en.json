@@ -2,12 +2,6 @@
     "config": {
         "abort": {
             "already_configured": "This integration is already configured. Enter a different MQTT root topic/prefix, select a different device type or enter a different device ID.",
-            "controller_already_configured": "This wallbox is already configured. Enter a different MQTT root topic/prefix.",
-            "batterie_already_configured": "This battery is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
-            "counter_already_configured": "This counter is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
-            "pv_already_configured": "This PV system is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
-            "vehicle_already_configured": "This vehicle is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
-            "chargepoint_already_configured": "This chargepoint is already configured. Enter a different MQTT root topic/prefix or a different device ID.",
             "mqtt_not_configured": "The MQTT integration is not set up. Set up the MQTT integration first or use the HTTP API."
         },
         "error": {
