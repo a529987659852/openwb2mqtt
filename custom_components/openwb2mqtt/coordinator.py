@@ -83,6 +83,23 @@ class OpenWBCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Send a command to the openWB."""
         raise NotImplementedError
 
+    @callback
+    def update_device_info(self) -> None:
+        """Show the openWB name (and the software version, MQTT only) on the device."""
+        device_registry = dr.async_get(self.hass)
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, get_id_prefix(self.config_entry)), self.config_entry.entry_id
+        )
+        if device is None:
+            return  # entities not set up yet
+        # name_by_user is never touched, so a name set by the user still wins
+        name = self.data.get("config/name")
+        if isinstance(name, str) and name not in ("", device.name):
+            device_registry.async_update_device(device.id, name=name)
+        version = self.data.get("version")
+        if version is not None and str(version) != device.sw_version:
+            device_registry.async_update_device(device.id, sw_version=str(version))
+
 
 class OpenWBHttpCoordinator(OpenWBCoordinator):
     """Poll one device over the simpleAPI HTTP interface."""
@@ -196,23 +213,6 @@ class OpenWBMqttCoordinator(OpenWBCoordinator):
         self.async_set_updated_data(new_data)
         if key in ("config/name", "version"):
             self.update_device_info()
-
-    @callback
-    def update_device_info(self) -> None:
-        """Show the openWB name and software version on the device."""
-        device_registry = dr.async_get(self.hass)
-        device = device_registry.async_get_device_by_identifier(
-            (DOMAIN, get_id_prefix(self.config_entry)), self.config_entry.entry_id
-        )
-        if device is None:
-            return  # entities not set up yet
-        # name_by_user is never touched, so a name set by the user still wins
-        name = self.data.get("config/name")
-        if isinstance(name, str) and name not in ("", device.name):
-            device_registry.async_update_device(device.id, name=name)
-        version = self.data.get("version")
-        if version is not None and str(version) != device.sw_version:
-            device_registry.async_update_device(device.id, sw_version=str(version))
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Return the stored values; this coordinator is never polled."""
