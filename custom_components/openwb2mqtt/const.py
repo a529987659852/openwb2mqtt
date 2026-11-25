@@ -235,7 +235,7 @@ def _safeFloat(x: str, c=1.0, op="div") -> float | None:
             return float(x) / c
         elif op == "mult":
             return float(x) * c
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
@@ -289,7 +289,7 @@ def _extractTimestamp(x: str) -> datetime.datetime | None:
         return None
     try:
         return datetime.datetime.fromtimestamp(float(x), tz=ZoneInfo("UTC"))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
@@ -394,7 +394,7 @@ def _to_bool(value: Any) -> bool | None:
             return False
     try:
         return bool(int(value))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
@@ -1419,7 +1419,7 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
         device_class=NumberDeviceClass.BATTERY,
         native_min_value=0,
         native_max_value=100,
-        native_step=1,
+        native_step=5,
         entity_category=EntityCategory.CONFIG,
         value_fn=_safeFloat,
     ),
