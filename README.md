@@ -13,7 +13,7 @@ The integration uses the **openWB simpleAPI** and connects in one of two ways:
 Version 2.0.0 is a major rework. Please read this before you update.
 
 *   **simpleAPI only.** Both connection methods now use the openWB simpleAPI. The old MQTT topics (`openWB/chargepoint/...`, `openWB/set/...`) are no longer used.
-*   **MQTT users must change the bridge.** Only one line is needed now: `topic openWB/simpleAPI/# both 2` (see [4.2](#42-mqtt-configuration)).
+*   **MQTT users must change the bridge.** Two lines are needed now: `topic openWB/simpleAPI/# in 2` and `topic openWB/simpleAPI/set/# out 2` (see [4.2](#42-mqtt-configuration)).
 *   **Your entity IDs stay the same.** Existing entries are migrated automatically on the first start. History, dashboards and automations keep working.
 *   **Device types "Controller" and "Vehicle" were removed.** Existing entries of these types show a repair notice and no longer create entities. Please delete them. You can build totals (for example the total charging power) with Home Assistant helpers such as "Sensor group" or a template sensor.
 *   **New device type "Consumer".**
@@ -93,12 +93,19 @@ The integration reads the simpleAPI topics from your own MQTT broker. Create a b
     connection openwb2
     local_clientid openwb2.mosquitto
     address 192.168.1.123:1883
-    topic openWB/simpleAPI/# both 2
+
+    # Import: values from the openWB to Home Assistant
+    topic openWB/simpleAPI/# in 2
+
+    # Export: commands from Home Assistant to the openWB
+    topic openWB/simpleAPI/set/# out 2
     ```
     Replace the IP address with the address of your openWB. If you use another root topic than `openWB`, replace it here as well.
+    *   **Import (`in`)** brings all values of the simpleAPI to your broker. Without it, the entities show no values.
+    *   **Export (`out`)** sends the commands of Home Assistant (topics below `openWB/simpleAPI/set/`) to the openWB. Without it, the controls do nothing. Leave it out if you only want to read values.
 3.  Restart your MQTT broker.
 
-**Updating from version 1.x:** replace all old `topic` lines in your bridge with the single line above.
+**Updating from version 1.x:** replace all old `topic` lines in your bridge with the two lines above.
 
 #### Step 2: Add the integration
 1.  **Communication method:** select **MQTT**.
@@ -195,7 +202,8 @@ For a video overview of the API setup and the migration, click below (recorded w
     *   HTTPS with a self-signed certificate: turn off "Verify SSL certificate".
 *   **"The openWB does not know a device of this type with this ID."** Check the device ID on the status page of your openWB.
 *   **"The MQTT integration is not set up."** Set up the MQTT integration first, or use the API method.
-*   **MQTT: no values.** Check that your bridge contains `topic openWB/simpleAPI/# both 2` and that you restarted the broker. In MQTT Explorer, you should see topics below `openWB/simpleAPI/`.
+*   **MQTT: no values.** Check that your bridge contains `topic openWB/simpleAPI/# in 2` and that you restarted the broker. In MQTT Explorer, you should see topics below `openWB/simpleAPI/`.
+*   **MQTT: values are shown, but the controls do nothing.** Check that your bridge also contains `topic openWB/simpleAPI/set/# out 2`. If only the charge limit controls do nothing, see [6](#6-good-to-know).
 *   **A command is sometimes ignored.** This can happen in openWB itself (also with plain HTTP requests). Try again.
 *   **My values only update every 15 seconds.** This is expected for the API method.
 *   **Which topic belongs to which entity?** See [`MQTT_Topic_Reference.md`](custom_components/openwb2mqtt/MQTT_Topic_Reference.md).
