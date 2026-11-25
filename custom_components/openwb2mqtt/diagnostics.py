@@ -5,7 +5,7 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .const import API_TOKEN, DEVICETYPE, REMOVED_DEVICE_TYPES
+from .const import API_TOKEN
 from .coordinator import OpenWBConfigEntry
 
 TO_REDACT = {API_TOKEN}
@@ -19,8 +19,10 @@ async def async_get_config_entry_diagnostics(
         "data": async_redact_data(dict(entry.data), TO_REDACT),
         "options": dict(entry.options),
     }
-    if entry.data.get(DEVICETYPE) in REMOVED_DEVICE_TYPES:
-        # Removed device types are not set up, so they have no runtime_data
+    # Only a loaded entry has runtime_data. Entries of removed device types,
+    # entries that failed to set up and unloaded entries have none.
+    coordinator = getattr(entry, "runtime_data", None)
+    if coordinator is None:
         return result
-    result["values"] = entry.runtime_data.data
+    result["values"] = coordinator.data
     return result
