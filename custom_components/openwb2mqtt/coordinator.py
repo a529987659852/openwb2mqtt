@@ -206,15 +206,9 @@ class OpenWBMqttCoordinator(OpenWBCoordinator):
     def update_device_info(self) -> None:
         """Show the openWB name and software version on the device."""
         device_registry = dr.async_get(self.hass)
-        # Look only at the devices of this config entry. async_get_device is
-        # deprecated (#99), and its replacement only exists since HA 2026.8.
-        identifier = (DOMAIN, get_id_prefix(self.config_entry))
-        device = None
-        for entry_device in dr.async_entries_for_config_entry(
-            device_registry, self.config_entry.entry_id
-        ):
-            if identifier in entry_device.identifiers:
-                device = entry_device
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, get_id_prefix(self.config_entry)), self.config_entry.entry_id
+        )
         if device is None:
             return  # entities not set up yet
         # name_by_user is never touched, so a name set by the user still wins
