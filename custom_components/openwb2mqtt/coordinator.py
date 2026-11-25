@@ -162,7 +162,7 @@ class OpenWBHttpCoordinator(OpenWBCoordinator):
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="command_failed",
-                translation_placeholders={"command": command},
+                translation_placeholders={"command": command, "error": str(err)},
             ) from err
         if isinstance(response, dict) and response.get("success") is False:
             raise HomeAssistantError(

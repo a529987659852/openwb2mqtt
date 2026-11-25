@@ -140,7 +140,7 @@
             "message": "Die Antwort der openWB enthält keine Daten für {key}."
         },
         "command_failed": {
-            "message": "Der Befehl {command} konnte nicht an die openWB gesendet werden."
+            "message": "Der Befehl {command} konnte nicht an die openWB gesendet werden: {error}"
         },
         "command_rejected": {
             "message": "Die openWB hat den Befehl {command} abgelehnt."

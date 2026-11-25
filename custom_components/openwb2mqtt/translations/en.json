@@ -116,7 +116,7 @@
             "message": "The openWB response contains no data for {key}."
         },
         "command_failed": {
-            "message": "The command {command} could not be sent to the openWB."
+            "message": "The command {command} could not be sent to the openWB: {error}"
         },
         "command_rejected": {
             "message": "The openWB rejected the command {command}."

@@ -51,31 +51,59 @@ class OpenWB2MqttApiClient:
             headers["Authorization"] = f"Bearer {self._token}"
 
         try:
+            # One time budget for the first try and the retry together
             async with asyncio.timeout(10):
-                # aiohttp sets the form Content-Type for dict data itself
-                response = await self._session.request(
-                    method=method,
-                    url=self._api_url,
-                    headers=headers,
-                    params=params,
-                    data=data,
-                )
-                response.raise_for_status()
-                json_response = await response.json()
-                _LOGGER.debug("API response: %s", json_response)
-                return json_response
+                try:
+                    json_response = await self._send_request(
+                        method, headers, params, data
+                    )
+                except aiohttp.ClientConnectionError as exception:
+                    if isinstance(exception, TimeoutError):
+                        raise  # ServerTimeoutError: the openWB did not answer
+                    # The openWB (or a proxy) closed a kept-alive connection.
+                    # Sending again is safe, also for POST: every simpleAPI set
+                    # command writes an absolute value.
+                    _LOGGER.debug(
+                        "Connection to the openWB lost (%r), sending the request again",
+                        exception,
+                    )
+                    json_response = await self._send_request(
+                        method, headers, params, data
+                    )
         except TimeoutError as exception:
             raise OpenWB2MqttApiClientCommunicationError(
-                "Timeout error fetching information",
+                "Timeout after 10 s",
             ) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             raise OpenWB2MqttApiClientCommunicationError(
-                "Error fetching information",
+                f"{type(exception).__name__}: {exception}",
             ) from exception
         except Exception as exception:
             raise OpenWB2MqttApiClientError(
                 "Something really wrong happened!"
             ) from exception
+        return json_response
+
+    async def _send_request(
+        self,
+        method: str,
+        headers: dict[str, str],
+        params: dict[str, str] | None,
+        data: dict[str, str] | None,
+    ) -> dict[str, Any]:
+        """Send one request and return the JSON answer."""
+        # aiohttp sets the form Content-Type for dict data itself
+        response = await self._session.request(
+            method=method,
+            url=self._api_url,
+            headers=headers,
+            params=params,
+            data=data,
+        )
+        response.raise_for_status()
+        json_response = await response.json()
+        _LOGGER.debug("API response: %s", json_response)
+        return json_response
 
 
 class OpenWB2MqttApiClientError(Exception):
