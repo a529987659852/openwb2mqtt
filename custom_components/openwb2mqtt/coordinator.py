@@ -19,17 +19,18 @@ from .api_client import (
     OpenWB2MqttApiClientError,
 )
 from .const import (
+    CENT_KEYS,
     COMM_METHOD_MQTT,
     COMMUNICATION_METHOD,
     DEVICEID,
     DEVICETYPE,
     DOMAIN,
-    HTTP_CENT_KEYS,
     HTTP_READ_PARAMETER,
     HTTP_RESPONSE_PREFIX,
     HTTP_UPDATE_INTERVAL,
     MQTT_ROOT_TOPIC,
     OpenWBEntityDescription,
+    _eur_from_cent,
     _safeFloat,
     format_command_value,
     get_id_prefix,
@@ -138,7 +139,7 @@ class OpenWBHttpCoordinator(OpenWBCoordinator):
                 translation_domain=DOMAIN, translation_key="not_available_http"
             )
         # The entity works in EUR/kWh, the openWB expects ct/kWh
-        if description.value_key in HTTP_CENT_KEYS:
+        if description.value_key in CENT_KEYS:
             value = _price_to_cent(value)
         data = {command: format_command_value(value, for_http=True)}
         if self.device_type == "chargepoint":
@@ -190,12 +191,9 @@ class OpenWBMqttCoordinator(OpenWBCoordinator):
         # Spec unclear: bat/pv/counter may keep "get/" (I2)
         key = key.removeprefix("get/")
         value = parse_mqtt_payload(message.payload)
-        # MQTT delivers the price in EUR/Wh, the entities show EUR/kWh
-        if key in HTTP_CENT_KEYS:
-            price = _safeFloat(value, 1000, "mult")
-            if price is not None:
-                price = round(price, 4)
-            value = price
+        # MQTT delivers ct/kWh, like HTTP; the entities show EUR/kWh
+        if key in CENT_KEYS:
+            value = _eur_from_cent(value)
         if key in self.data and self.data[key] == value:
             return  # nothing changed (N4)
         new_data = dict(self.data)
@@ -238,7 +236,7 @@ class OpenWBMqttCoordinator(OpenWBCoordinator):
                 translation_domain=DOMAIN, translation_key="not_available_mqtt"
             )
         # The entity works in EUR/kWh, the openWB expects ct/kWh
-        if description.value_key in HTTP_CENT_KEYS:
+        if description.value_key in CENT_KEYS:
             value = _price_to_cent(value)
         topic = f"{self.mqtt_root}/simpleAPI/{command.format(device_id=self.device_id)}"
         await mqtt.async_publish(

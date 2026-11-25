@@ -123,8 +123,8 @@ HTTP_KEY_RENAMES = {
 }
 # HTTP delivers these values in Wh, MQTT in kWh
 HTTP_WH_KEYS = ["instant_charging_limit_amount", "pv_charging_limit_amount"]
-# HTTP delivers these values in ct/kWh, the entities show EUR/kWh
-HTTP_CENT_KEYS = ["max_price_eco"]
+# Both transports deliver these prices in ct/kWh (simpleAPI x100000), the entities show EUR/kWh
+CENT_KEYS = ["max_price_eco"]
 PRICE_UNIT = f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}"
 
 # Data schema required by configuration flow
@@ -307,12 +307,9 @@ def normalize_http_data(data: dict[str, Any], device_type: str) -> dict[str, Any
         if key in normalized:
             normalized[key] = _kwh_from_wh(normalized[key])
     # HTTP returns these prices in ct/kWh, the entities show EUR/kWh
-    for key in HTTP_CENT_KEYS:
+    for key in CENT_KEYS:
         if key in normalized:
-            price = _safeFloat(normalized[key], 100)
-            if price is not None:
-                price = round(price, 4)
-            normalized[key] = price
+            normalized[key] = _eur_from_cent(normalized[key])
     return normalized
 
 
@@ -332,6 +329,14 @@ def format_command_value(value: str | float | bool, for_http: bool) -> str:
 def _kwh_from_wh(value: Any) -> float | None:
     """Convert Wh to kWh."""
     return _safeFloat(value, 1000)
+
+
+def _eur_from_cent(value: Any) -> float | None:
+    """Convert a price in ct/kWh to EUR/kWh, rounded to 4 decimals."""
+    price = _safeFloat(value, 100)
+    if price is None:
+        return None
+    return round(price, 4)
 
 
 def _shorten_text(value: Any) -> str:

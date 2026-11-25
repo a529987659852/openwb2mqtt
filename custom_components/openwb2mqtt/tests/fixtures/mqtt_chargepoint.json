@@ -149,7 +149,7 @@
   ],
   [
     "openWB/simpleAPI/chargepoint/6/max_price_eco",
-    "0.00035"
+    "35.0"
   ],
   [
     "openWB/simpleAPI/chargepoint/6/minimal_permanent_current",
