@@ -24,6 +24,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    CONF_VERIFY_SSL,
     CURRENCY_EURO,
     PERCENTAGE,
     Platform,
@@ -181,6 +182,8 @@ DATA_SCHEMA_API = vol.Schema(
         vol.Optional(API_TOKEN): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
+        # Off only for a self-signed HTTPS certificate (openWB user management, #92)
+        vol.Optional(CONF_VERIFY_SSL, default=True): cv.boolean,
         vol.Required(DEVICETYPE, default="chargepoint"): DEVICE_TYPE_SELECTOR,
         vol.Required(DEVICEID, default=4): cv.positive_int,
     }

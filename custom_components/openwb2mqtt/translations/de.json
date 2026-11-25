@@ -28,11 +28,13 @@
                     "api_prefix": "API Präfix",
                     "api_url": "API URL",
                     "api_token": "API Token",
+                    "verify_ssl": "SSL-Zertifikat prüfen",
                     "DEVICETYPE": "Gerätetyp",
                     "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)"
                 },
                 "data_description": {
-                    "api_token": "Optional. Nur erforderlich, wenn die simpleAPI Ihrer openWB mit einem Token geschützt ist."
+                    "api_token": "Optional. Nur erforderlich, wenn die simpleAPI Ihrer openWB mit einem Token geschützt ist.",
+                    "verify_ssl": "Nur bei HTTPS mit selbst signiertem Zertifikat ausschalten (z. B. openWB mit Benutzerverwaltung)."
                 },
                 "description": "Geben Sie einen Präfix ein, der die openWB eindeutig identifiziert.\n*Wenn Sie von MQTT zur API-Schnittstelle migrieren, geben Sie hier das MQTT-Wurzeltopic ein und die Integration erzeugt die Sensoren etc. mit den gleichen IDs.*\n\nPassen Sie die IP-Adresse an und wählen Sie den Gerätetyp aus.\nBei den  Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage, Batterie und Verbraucher ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.",
                 "title": "API-Einstellungen für openWB"
@@ -93,12 +95,11 @@
                     "Stop": "Stop",
                     "Scheduled Charging": "Zielladen",
                     "Time Charging": "Zeitladen",
-                       "Instant Charging": "Sofortladen",
+                    "Instant Charging": "Sofortladen",
                     "PV Charging": "PV-Laden",
                     "ECO Charging": "Eco"
                 }
             }
-
         },
         "select": {
             "selector_chargepoint_chargemode": {
@@ -111,15 +112,15 @@
                 }
             }
         },
-		"lock": {
+        "lock": {
             "manual_lock": {
-				"name": "Manuelle Sperre",
+                "name": "Manuelle Sperre",
                 "state": {
                     "locked": "Gesperrt",
                     "unlocked": "Entsperrt"
                 }
             }
-		}
+        }
     },
     "exceptions": {
         "update_failed": {

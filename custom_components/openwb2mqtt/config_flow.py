@@ -12,6 +12,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlowWithReload,
 )
+from homeassistant.const import CONF_VERIFY_SSL
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -152,7 +153,9 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
         api_client = OpenWB2MqttApiClient(
             api_url=user_input[API_URL],
             token=user_input.get(API_TOKEN),
-            session=async_get_clientsession(self.hass),
+            session=async_get_clientsession(
+                self.hass, verify_ssl=user_input.get(CONF_VERIFY_SSL, True)
+            ),
         )
         try:
             components = await api_client.async_get_data({"list_components": "all"})

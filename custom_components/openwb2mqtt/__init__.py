@@ -4,6 +4,7 @@ import logging
 
 from homeassistant.components import mqtt
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import device_registry as dr, issue_registry as ir
@@ -63,7 +64,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: OpenWBConfigEntry) -> bo
         api_client = OpenWB2MqttApiClient(
             api_url=entry.data[API_URL],
             token=entry.data.get(API_TOKEN),
-            session=async_get_clientsession(hass),
+            # Old entries have no verify_ssl: check certificates as before
+            session=async_get_clientsession(
+                hass, verify_ssl=entry.data.get(CONF_VERIFY_SSL, True)
+            ),
         )
         coordinator = OpenWBHttpCoordinator(hass, entry, api_client)
         await coordinator.async_config_entry_first_refresh()
