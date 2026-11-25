@@ -124,7 +124,7 @@ class openwbmqttConfigFlow(ConfigFlow, domain=DOMAIN):
             user_input,
             "details_api",
             DATA_SCHEMA_API,
-            {API_URL: "http://192.168.0.68/openWB/simpleAPI/simpleapi.php"},
+            {API_URL: "http://openwb.local/openWB/simpleAPI/simpleapi.php"},
             errors,
         )
 
