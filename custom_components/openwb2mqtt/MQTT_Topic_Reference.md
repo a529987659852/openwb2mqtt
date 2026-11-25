@@ -96,6 +96,7 @@ available with the HTTP API.
 | `imported` / `exported` | Total energy charged / discharged | Wh |
 | `daily_imported` / `daily_exported` | Energy today | Wh |
 | `fault_str` / `fault_state` | Fault text / fault state | |
+| `power_limit_controllable` | Battery power can be limited by openWB | true / false |
 
 ### PV – `{root}/simpleAPI/pv/{id}/<key>`
 

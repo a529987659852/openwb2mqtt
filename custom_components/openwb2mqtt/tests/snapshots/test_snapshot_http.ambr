@@ -11,6 +11,15 @@
       'unit_of_measurement': None,
     }),
     dict({
+      'device_class': None,
+      'disabled_by_default': <RegistryEntryDisabler.INTEGRATION: 'integration'>,
+      'entity_id': 'binary_sensor.openwb_bat_1_leistungsbegrenzung_steuerbar',
+      'original_name': 'Leistungsbegrenzung steuerbar',
+      'state': 'on',
+      'unique_id': 'openwb_bat_1_leistungsbegrenzung_steuerbar',
+      'unit_of_measurement': None,
+    }),
+    dict({
       'device_class': <NumberDeviceClass.POWER: 'power'>,
       'disabled_by_default': None,
       'entity_id': 'number.openwb_bat_1_reservierte_speicherleistung',

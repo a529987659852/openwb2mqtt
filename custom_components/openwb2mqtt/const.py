@@ -1054,6 +1054,14 @@ BATTERY_BINARY_SENSORS: list[OpenWBBinarySensorEntityDescription] = [
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_to_bool,
     ),
+    OpenWBBinarySensorEntityDescription(
+        key="power_limit_controllable",
+        value_key="power_limit_controllable",
+        name="Leistungsbegrenzung steuerbar",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=_to_bool,
+    ),
 ]
 
 PV_SENSORS: list[OpenWBSensorEntityDescription] = [
