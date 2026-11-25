@@ -16,3 +16,5 @@ custom_components/openwb2mqtt/simpleapi.php
 custom_components/openwb2mqtt/simpleAPI_mqtt.py
 custom_components/openwb2mqtt/SPEC_simpleAPIHTTP.md
 custom_components/openwb2mqtt/SPEC_simpleAPIMQTT.md
+custom_components/openwb2mqtt/TEST_PLAN.md
+custom_components/openwb2mqtt/token4Claude.txt

@@ -902,6 +902,7 @@ COUNTER_SENSORS: list[OpenWBSensorEntityDescription] = [
         value_key="power",
         name="Leistung",
         device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPower.WATT,
         icon="mdi:transmission-tower",
         value_fn=_safeNumber,
