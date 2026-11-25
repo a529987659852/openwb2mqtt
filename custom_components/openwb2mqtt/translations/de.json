@@ -45,7 +45,7 @@
                     "DEVICETYPE": "Gerätetyp",
                     "DEVICEID": "Geräte-ID in openWB (-> Status-Tab)"
                 },
-                "description": "Die Integration verwendet die simpleAPI der openWB (openWB Version 2.1.9 oder neuer). Bridgen Sie das Topic openWB/simpleAPI/# von der openWB zu Ihrem MQTT-Server.\n\nGeben Sie ein MQTT-Wurzeltopic ein, unter dem die openWB auf Ihrem MQTT-Server erreichbar ist und wählen Sie den Gerätetyp aus.\nBei den Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage, Batterie und Verbraucher ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.",
+                "description": "Die Integration verwendet die simpleAPI der openWB (openWB Version 2.1.9 oder neuer). Bridgen Sie das Topic openWB/simpleAPI/# von der openWB zu Ihrem MQTT-Server (in) und das Topic openWB/simpleAPI/set/# von Ihrem MQTT-Server zur openWB (out).\n\nGeben Sie ein MQTT-Wurzeltopic ein, unter dem die openWB auf Ihrem MQTT-Server erreichbar ist und wählen Sie den Gerätetyp aus.\nBei den Gerätetypen Zähler, Ladepunkt, Photovoltaikanlage, Batterie und Verbraucher ist zusätzlich die Geräte-ID erforderlich. Diese finden Sie auf dem Status-Tab Ihrer openWB.",
                 "title": "MQTT-Einstellungen für openWB"
             },
             "chargepoint": {
