@@ -1135,6 +1135,20 @@ PV_SENSORS: list[OpenWBSensorEntityDescription] = [
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_shorten_text,
     ),
+    # get_pv has no imported; only the separate get_pv_imported (would need a 2nd request)
+    OpenWBSensorEntityDescription(
+        key="imported",
+        value_key="imported",
+        name="Importierte Energie (Gesamt)",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        icon="mdi:transmission-tower-import",
+        entity_registry_enabled_default=False,
+        suggested_display_precision=0,
+        value_fn=_rounded_kwh,
+        supports_http=False,
+    ),
 ]
 
 PV_BINARY_SENSORS: list[OpenWBBinarySensorEntityDescription] = [

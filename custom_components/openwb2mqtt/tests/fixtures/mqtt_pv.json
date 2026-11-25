@@ -32,6 +32,10 @@
     "\"Kein Fehler.\""
   ],
   [
+    "openWB/simpleAPI/pv/5/get/imported",
+    "1234.5"
+  ],
+  [
     "openWB/simpleAPI/pv/5/get/monthly_exported",
     "572544.362999998"
   ],

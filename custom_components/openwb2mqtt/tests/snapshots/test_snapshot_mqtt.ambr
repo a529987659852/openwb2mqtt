@@ -851,6 +851,15 @@
       'unit_of_measurement': None,
     }),
     dict({
+      'device_class': <SensorDeviceClass.ENERGY: 'energy'>,
+      'disabled_by_default': <RegistryEntryDisabler.INTEGRATION: 'integration'>,
+      'entity_id': 'sensor.openwb_pv_5_importierte_energie_gesamt',
+      'original_name': 'Importierte Energie (Gesamt)',
+      'state': '1.234',
+      'unique_id': 'openwb_pv_5_importierte_energie_gesamt',
+      'unit_of_measurement': <UnitOfEnergy.KILO_WATT_HOUR: 'kWh'>,
+    }),
+    dict({
       'device_class': <SensorDeviceClass.POWER: 'power'>,
       'disabled_by_default': None,
       'entity_id': 'sensor.openwb_pv_5_leistung',

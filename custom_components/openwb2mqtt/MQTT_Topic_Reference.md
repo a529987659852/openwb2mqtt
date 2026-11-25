@@ -106,6 +106,7 @@ available with the HTTP API.
 | `currents/1` … `currents/3` | Current per phase | A |
 | `exported` | Total energy produced | Wh |
 | `daily_exported` / `monthly_exported` / `yearly_exported` | Energy today / this month / this year | Wh |
+| `imported` | Total energy imported (MQTT only) | Wh |
 | `fault_str` / `fault_state` | Fault text / fault state | |
 
 ## How the integration writes values
