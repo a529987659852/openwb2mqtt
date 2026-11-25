@@ -20,6 +20,7 @@ from .api_client import (
     OpenWB2MqttApiClientCommunicationError,
     OpenWB2MqttApiClientError,
 )
+from .common import get_vehicles
 
 # Import global values.
 from .const import (
@@ -299,10 +300,14 @@ class OptionsFlowHandler(OptionsFlowWithReload):
             )
 
         # Otherwise show a form to the user and ask for configuration options
-        # If there are options currently configured, propose them.
-        wallbox_power = self.config_entry.options.get(CONF_WALLBOX_POWER)
+        # Propose the current values. Before the options flow was saved once,
+        # they are only in the entry data (from the config flow).
+        entry = self.config_entry
+        wallbox_power = entry.options.get(
+            CONF_WALLBOX_POWER, entry.data.get(CONF_WALLBOX_POWER)
+        )
         suggested_values: dict[str, Any] = {CONF_WALLBOX_POWER: wallbox_power}
-        current_options_carlist = self.config_entry.options.get(CONF_VEHICLES, {})
+        current_options_carlist = get_vehicles(entry)
 
         if len(current_options_carlist) > 0:
             # Convert dict -> string for output
