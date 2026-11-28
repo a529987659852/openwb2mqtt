@@ -143,9 +143,9 @@ The tables show the entity names as they appear in Home Assistant. "Both" means 
 | Sensor | Ladeleistung, Leistung (L1–L3), Strom (L1–L3), Spannung (L1–L3), Frequenz, Aktive Phasen | ✔ | ✔ |
 | Sensor | Geladene Energie (Heute / Gesamt), Entladene Energie (Heute / Gesamt, off), Geladene Entfernung (off) | ✔ | ✔ |
 | Sensor | Ladezustand, Fehlerbeschreibung, Ladepunkt, Lademodus, Fahrzeug, Fahrzeug-ID, Ladung (SoC) | ✔ | ✔ |
-| Sensor | Min. Dauerstrom (PV-Laden), Max. Preis (Strompreisbasiertes Laden), SoC (openWB Pro), SoC-Datenaktualisierung (openWB Pro, off) | ✔ | ✔ |
+| Sensor | Soll-Ladestrom (Sofortladen), Min. Dauerstrom (PV-Laden), Max. Preis (Strompreisbasiertes Laden), SoC (openWB Pro), SoC-Datenaktualisierung (openWB Pro, off) | ✔ | ✔ |
 | Sensor | Ladebegrenzung (Meldung), Ladebegrenzung (Grund, off), Zuletzt gescannter RFID-Tag (off), RFID-Zeitstempel (off), Ladestromvorgabe (off), Leistungsfaktor (L1–L3, off) | ✔ | ✔ |
-| Sensor | Lade-Profil, Soll-Ladestrom (Sofortladen), Mindeststrom (Lademodus, off) | ✔ | – |
+| Sensor | Lade-Profil, Mindeststrom (Lademodus, off) | ✔ | – |
 | Sensor | Ladestrom (aktuell), Ladeleistung (aktuell, off), Ladespannung (aktuell, off), SoC-Datenaktualisierung (off), Seriennummer, Version | – | ✔ |
 | Binary sensor | Ladekabel, Autoladestatus, Fehler | ✔ | ✔ |
 | Select | Lademodus (Instant, PV, ECO, Target Charging, Stop), Begrenzung (Sofortladen), Begrenzung (PV-Laden) | ✔ | ✔ |
@@ -173,7 +173,7 @@ These entities are no longer created. Existing ones stay as "unavailable" and ca
 *   All entities of the device types Controller and Vehicle.
 *   API and MQTT: "Vehicle ID" (use "Fahrzeug-ID").
 *   API: "SoC-Datenaktualisierung" (the API only delivers the openWB Pro timestamp, now "SoC-Datenaktualisierung (openWB Pro)").
-*   MQTT: "Aktueller SoC (Manuelles SoC Modul)", "Angeschlossenes Fahrzeug", "Lade-Profil", sensor "Soll-Ladestrom (Sofortladen)".
+*   MQTT: "Aktueller SoC (Manuelles SoC Modul)", "Angeschlossenes Fahrzeug", "Lade-Profil".
 
 ---
 
@@ -181,8 +181,8 @@ These entities are no longer created. Existing ones stay as "unavailable" and ca
 
 *   **Prices** ("Max. Preis") are shown and set in **€/kWh**.
 *   **Controls without a read value show the last value you sent.** After a restart of Home Assistant they are "unknown" until you set them again. This applies to:
-    *   API: Min. SoC (PV-Laden), Speicherbeachtung, Reservierte Speicherleistung
-    *   MQTT: Soll-Ladestrom (Sofortladen), Speicherbeachtung, Reservierte Speicherleistung
+    *   API and MQTT: Speicherbeachtung, Reservierte Speicherleistung
+    *   On openWB versions before openWB core [#4397](https://github.com/openWB/core/pull/4397) also: API: Min. SoC (PV-Laden); MQTT: Soll-Ladestrom (Sofortladen) (number and sensor)
 *   **MQTT: charge limit controls act on the chargepoint with the lowest ID.** The simpleAPI has no chargepoint ID for these commands: Begrenzung, SoC-Limit and Energie-Limit (Sofortladen and PV-Laden). With several chargepoints, use the API method for them.
     *   If these controls do nothing at all, your openWB may still publish topics of a deleted chargepoint with a lower ID (for example `openWB/chargepoint/4/...`). Check with MQTT Explorer.
 *   **"Aktueller SoC (Manuelles SoC Modul)"** only has an effect if the vehicle uses the manual SoC module in openWB. Otherwise openWB ignores the value and the entity shows the real SoC again after the next update.

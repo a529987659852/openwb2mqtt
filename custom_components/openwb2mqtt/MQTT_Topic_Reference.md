@@ -73,6 +73,7 @@ topic openWB/simpleAPI/set/# out 2
 | `rfid` / `rfid_timestamp` | Last RFID tag and its time | |
 | `minimal_permanent_current` | Min. permanent current (PV charging) | A |
 | `minimal_pv_soc` | Min. SoC (PV charging) | % |
+| `instant_charging_current` | Target current (instant charging) | A (since openWB core #4397) |
 | `max_price_eco` | Max. price (eco charging) | arrives in ct/kWh, shown in €/kWh |
 | `instant_charging_limit` | Limit (instant charging) | none, soc, amount |
 | `instant_charging_limit_soc` | SoC limit (instant charging) | % |
@@ -169,9 +170,10 @@ Notes:
 
 - Topics without `chargepoint/{id}` act on the chargepoint with the **lowest ID**
   (or on the whole openWB, for `bat_mode` and `bat_power_reserve`).
-- Only target current (instant charging), battery mode and reserved battery power have
-  no read topic. These entities show the **last value sent** from Home Assistant, not
-  the value currently stored in openWB.
+- Battery mode and reserved battery power have no read topic. These entities show the
+  **last value sent** from Home Assistant, not the value currently stored in openWB.
+  The same applies to target current (instant charging) on openWB versions before
+  openWB core #4397, which added `instant_charging_current`.
 
 ## Known behaviour of the simpleAPI daemon
 
@@ -185,7 +187,7 @@ Notes:
   `openWB/chargepoint/4/set/change_ev_permitted` without any other topics of chargepoint 4).
 - **Failed chargepoint commands are cleared:** the daemon clears `set/chargepoint/...`
   topics even when the command failed (for example an invalid value, or the charge
-  template is not cached yet). For entities without a read topic (target current),
+  template is not cached yet). For entities without a read topic (battery mode, reserved battery power),
   Home Assistant may show a value that openWB never accepted. Check the daemon log.
 - **Failed limit and battery commands stay on their set topic.** Home Assistant publishes
   them non-retained, so they are not repeated. Do not publish them retained by hand.

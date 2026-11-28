@@ -69,9 +69,6 @@ REMOVED_IDS: dict[str, list[str]] = {
         "select.openwb_chargepoint_6_angeschlossenes_fahrzeug",
         # The simpleAPI MQTT has no charge template name (HTTP keeps it)
         "sensor.openwb_chargepoint_6_lade_profil",
-        # The simpleAPI MQTT has no read topic for it; the number with the same
-        # name shows the last sent value instead
-        "sensor.openwb_chargepoint_6_soll_ladestrom_sofortladen",
         # Only "Fahrzeug-ID" is kept (REFACTOR_PLAN.md §0.1 no. 8)
         "sensor.openwb_chargepoint_6_vehicle_id",
     ],

@@ -730,7 +730,7 @@ CHARGEPOINT_SENSORS: list[OpenWBSensorEntityDescription] = [
         icon="mdi:current-ac",
         suggested_display_precision=1,
         value_fn=_safeFloat,
-        supports_mqtt=False,
+        # MQTT delivers it since openWB core #4397 (older versions: unknown)
     ),
     OpenWBSensorEntityDescription(
         key="minimal_permanent_current",
@@ -1332,7 +1332,9 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
     ),
     OpenWBNumberEntityDescription(
         key="instant_charging_current_control",
-        value_key="instant_charging_current",  # MQTT: shows the last sent value
+        # Read on both transports (MQTT since openWB core #4397; older versions
+        # show the last sent value)
+        value_key="instant_charging_current",
         name="Soll-Ladestrom (Sofortladen)",
         http_command="chargecurrent",
         mqtt_command="set/chargepoint/{device_id}/chargecurrent",
@@ -1409,8 +1411,8 @@ CHARGEPOINT_NUMBERS: list[OpenWBNumberEntityDescription] = [
     ),
     OpenWBNumberEntityDescription(
         key="minimal_pv_soc",
-        # HTTP has no getter (write only), so HTTP shows the last sent value;
-        # MQTT reads minimal_pv_soc
+        # Read on both transports (HTTP since openWB core #4397; older versions
+        # show the last sent value)
         value_key="minimal_pv_soc",
         name="Min. SoC (PV-Laden)",
         http_command="minimal_pv_soc",
